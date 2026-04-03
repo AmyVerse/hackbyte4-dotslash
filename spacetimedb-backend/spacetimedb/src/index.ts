@@ -261,7 +261,7 @@ export const create_incident = spacetimedb.reducer(
     }
 );  
 
-export const request_responder = spacetimedb.reducer(
+  export const request_responder = spacetimedb.reducer(
     {
         incidentId: t.u64(),
         responderPhone: t.string()
@@ -277,13 +277,24 @@ export const request_responder = spacetimedb.reducer(
             throw new SenderError("Valid responder phone number required.");
         }
 
-        // Create the pending request (frontend can listen for this to show a pop-up!)
+        const currentTime = BigInt(Date.now());
+
+        // 1. Create the pending request 
         ctx.db.dispatch_requests.insert({
             requestId: 0n, // autoInc
             incidentId,
             responderPhone,
             status: "pending",
-            timestamp: BigInt(Date.now())
+            timestamp: currentTime
+        });
+
+        // 2. NEW: Log the dispatch attempt to the timeline
+        ctx.db.timeline_events.insert({
+            eventId: 0n, // autoInc
+            incidentId,
+            eventType: "RESPONDER_REQUESTED",
+            message: `Dispatcher requested unit ${responder.name || responder.phone}. Waiting for confirmation.`,
+            timestamp: currentTime
         });
     }
 );
@@ -350,7 +361,39 @@ export const accept_dispatch = spacetimedb.reducer(
     }
 );
 
+export const reject_dispatch = spacetimedb.reducer(
+    {
+        requestId: t.u64(),
+        reason: t.option(t.string()) 
+    },
+    (ctx, { requestId, reason }) => {
+        const responder = ctx.db.users.identity.find(ctx.sender);
+        if (!responder || responder.role !== "responder") {
+            throw new SenderError("Unauthorized.");
+        }
 
+        const request = ctx.db.dispatch_requests.requestId.find(requestId);
+        if (!request || request.status !== "pending") {
+            throw new SenderError("Request not found or already handled.");
+        }
+
+        
+        ctx.db.dispatch_requests.requestId.update({
+            ...request,
+            status: "rejected"
+        });
+
+      
+        const reasonText = reason !== undefined ? ` Reason: ${reason}` : "";
+        ctx.db.timeline_events.insert({
+            eventId: 0n, 
+            incidentId: request.incidentId,
+            eventType: "RESPONDER_REJECTED",
+            message: `Responder ${responder.name || responder.phone} declined the dispatch.${reasonText}`,
+            timestamp: BigInt(Date.now())
+        });
+    }
+);
 
 
 
