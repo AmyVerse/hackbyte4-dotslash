@@ -1,0 +1,62 @@
+# --- SpacetimeDB Specific ---
+# Ignore the local database state and identity files
+.spacetime/
+# Ignore secret identities (don't leak your admin/test keys!)
+*.identity
+# Ignore local configuration files
+spacetime.local.json
+# Ignore temporary build files from the CLI
+target/
+bin/
+obj/
+
+# --- Node.js / React ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Build Artifacts ---
+dist/
+out/
+build/
+.next/
+# If you use Vite
+.vite/
+
+# --- TypeScript ---
+# Ignore the auto-generated bindings folder *ONLY IF* you want them 
+# re-generated on every fresh clone. (Usually better to keep them 
+# ignored to avoid version mismatch between BE and FE).
+# src/module_bindings/
+
+*.tsbuildinfo
+
+# --- Environment & Secrets ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- OS Specific ---
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# --- IDEs (VS Code / JetBrains) ---
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# --- Logs ---
+logs
+*.log
+
+
+./sapcetimedb/node_modules/
