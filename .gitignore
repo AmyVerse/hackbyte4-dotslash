@@ -59,4 +59,5 @@ logs
 *.log
 
 
-./sapcetimedb/node_modules/
+# Ignore the spacetimedb package local node_modules
+spacetimedb/node_modules/
