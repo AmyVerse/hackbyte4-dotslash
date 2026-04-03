@@ -22,7 +22,7 @@ function App() {
     if (!connected) return; // wait for connection before starting
     intervalRef.current = setInterval(() => {
       incrementCounter();
-    }, 1000);
+    }, 6000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
