@@ -63,6 +63,11 @@ const media_fragments = table({ name: 'media_fragments', public: true }, {
     timestamp: t.u64(),
 });
 
+const demo_counter = table({ name: 'demo_counter', public: true }, {
+    id: t.u32().primaryKey(), // Always 0
+    value: t.u32()            // The actual count
+});
+
 
   const spacetimedb =  schema({ 
     users, 
@@ -70,10 +75,35 @@ const media_fragments = table({ name: 'media_fragments', public: true }, {
     live_entities, 
     incidents, 
     timeline_events, 
-    media_fragments 
+    media_fragments ,
+    demo_counter
 });
 
 export default spacetimedb;
+
+export const increment_counter = spacetimedb.reducer(
+   
+    {}, // No arguments needed from the frontend
+    (ctx, _args) => {
+        // Look for the single global counter row (ID: 0)
+        const existing = ctx.db.demo_counter.id.find(0);
+
+        if (existing) {
+            // If it exists, increase the value by 1
+            ctx.db.demo_counter.id.update({
+                id: 0,
+                value: existing.value + 1
+            });
+        } else {
+            // First time it's called, create the row starting at 1
+            ctx.db.demo_counter.insert({
+                id: 0,
+                value: 1
+            });
+        }
+    }
+);
+
 
 
 // REDUCERSSSS
