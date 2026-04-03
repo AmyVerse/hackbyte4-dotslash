@@ -1,4 +1,4 @@
-import { table, t, schema } from 'spacetimedb/server';
+import { table, t, schema, SenderError } from 'spacetimedb/server';
 
 
 /// SCHEMAAAAA
@@ -63,12 +63,13 @@ const media_fragments = table({ name: 'media_fragments', public: true }, {
     timestamp: t.u64(),
 });
 
-const demo_counter = table({ name: 'demo_counter', public: true }, {
-    id: t.u32().primaryKey(), // Always 0
-    value: t.u32()            // The actual count
+const dispatch_requests = table({ name: 'dispatch_requests', public: true }, {
+    requestId: t.u64().primaryKey().autoInc(),
+    incidentId: t.u64(),
+    responderPhone: t.string(),
+    status: t.string(), // "pending", "accepted", "rejected"
+    timestamp: t.u64(),
 });
-
-
   const spacetimedb =  schema({ 
     users, 
     distress_signals,
@@ -76,54 +77,28 @@ const demo_counter = table({ name: 'demo_counter', public: true }, {
     incidents, 
     timeline_events, 
     media_fragments ,
-    demo_counter
+    dispatch_requests
 });
 
 export default spacetimedb;
 
-export const increment_counter = spacetimedb.reducer(
-   
-    {}, // No arguments needed from the frontend
-    (ctx, _args) => {
-        // Look for the single global counter row (ID: 0)
-        const existing = ctx.db.demo_counter.id.find(0);
-
-        if (existing) {
-            // If it exists, increase the value by 1
-            ctx.db.demo_counter.id.update({
-                id: 0,
-                value: existing.value + 1
-            });
-        } else {
-            // First time it's called, create the row starting at 1
-            ctx.db.demo_counter.insert({
-                id: 0,
-                value: 1
-            });
-        }
-    }
-);
-
-
-
-// REDUCERSSSS
 
 export const update_location = spacetimedb.reducer(
-   
-    { 
-        lat: t.f64(), 
-        lng: t.f64(), 
-        type: t.string(), 
-        subType: t.string() 
+    {
+        lat: t.f64(),
+        lng: t.f64(),
+        type: t.string(),
+        subType: t.string()
     },
     (ctx, { lat, lng, type, subType }) => {
-        const currentTime = BigInt(Date.now());
-        
-        
-        const user = ctx.db.users.identity.find(ctx.sender);
-  
-        const phone = user ? user.phone : undefined;
+       
+        if (lat < -90.0 || lat > 90.0) throw new SenderError("Invalid latitude.");
+        if (lng < -180.0 || lng > 180.0) throw new SenderError("Invalid longitude.");
+        if (!type) throw new SenderError("Entity type is required.");
 
+        const currentTime = BigInt(Date.now());
+        const user = ctx.db.users.identity.find(ctx.sender);
+        const phone = user ? user.phone : undefined;
         const existing = ctx.db.live_entities.id.find(ctx.sender);
 
         if (existing) {
@@ -134,7 +109,8 @@ export const update_location = spacetimedb.reducer(
                 lastSeen: currentTime,
                 type,
                 subType,
-                userPhone: phone 
+                status: "active", // Ensure they are marked active if they move
+                userPhone: phone
             });
         } else {
             ctx.db.live_entities.insert({
@@ -150,3 +126,258 @@ export const update_location = spacetimedb.reducer(
         }
     }
 );
+
+export const link_user = spacetimedb.reducer(
+    { 
+        phone: t.string(), 
+        name: t.option(t.string()) 
+    },
+    (ctx, { phone, name }) => {
+        
+        if (!phone || phone.trim() === "" || phone.length < 7) {
+            throw new SenderError("Invalid phone number provided.");
+        }
+
+        const existingByPhone = ctx.db.users.phone.find(phone);
+
+        if (existingByPhone) {
+            // DEVICE HOPPING: If the user exists but they are logging in from a NEW device
+            // (e.g., started on WhatsApp, now opened the Web Map), their ctx.sender changed.
+            // Because 'identity' is the Primary Key, we delete the old row and insert the new one.
+            if (existingByPhone.identity.toHexString() !== ctx.sender.toHexString()) {
+                ctx.db.users.identity.delete(existingByPhone.identity);
+                
+                ctx.db.users.insert({
+                    ...existingByPhone,
+                    identity: ctx.sender,
+                    // Update name if provided, otherwise keep the old one
+                    name: name !== undefined ? name : existingByPhone.name
+                });
+            } else {
+                // Same device, they just want to update their name
+                ctx.db.users.identity.update({
+                    ...existingByPhone,
+                    name: name !== undefined ? name : existingByPhone.name
+                });
+            }
+        } else {
+            // BRAND NEW USER REGISTRATION
+            ctx.db.users.insert({
+                identity: ctx.sender,
+                phone: phone,
+                name: name, // This is already string | undefined
+                role: "civilian",
+                trustScore: 0.5
+            });
+        }
+    }
+);
+
+
+export const report_distress = spacetimedb.reducer(
+    {
+        severity: t.u32(),
+        message: t.string()
+    },
+    (ctx, { severity, message }) => {
+        
+        if (severity < 1 || severity > 5) {
+            throw new SenderError("Severity must be between 1 and 5.");
+        }
+        if (!message || message.trim() === "") {
+            throw new SenderError("Distress message cannot be empty.");
+        }
+
+        const currentTime = BigInt(Date.now());
+
+        
+        const user = ctx.db.users.identity.find(ctx.sender);
+        
+        const phone = user ? user.phone : "anonymous";
+
+       
+      
+        ctx.db.distress_signals.insert({
+            signalId: 0n,          
+            userPhone: phone,
+            incidentId: undefined, 
+            severity,
+            message,
+            status: "pending",
+            timestamp: currentTime
+        });
+
+        
+        const existingMarker = ctx.db.live_entities.id.find(ctx.sender);
+
+        if (existingMarker) {
+            ctx.db.live_entities.id.update({
+                ...existingMarker,
+                type: "distress",
+                status: "active",
+                lastSeen: currentTime
+            });
+        }
+        // (If they aren't on the map yet, the frontend should immediately call 
+        // update_location right after calling report_distress)
+    }
+);
+
+export const create_incident = spacetimedb.reducer(
+    {
+        category: t.string(), 
+        description: t.string(),
+        lat: t.f64(),
+        lng: t.f64()
+    },
+    (ctx, { category, description, lat, lng }) => {
+       
+        const user = ctx.db.users.identity.find(ctx.sender);
+        
+        if (!user || (user.role !== "dispatcher" && user.role !== "responder" && user.role !== "system")) {
+            throw new SenderError("Unauthorized: Only dispatchers or responders can create incidents.");
+        }
+
+        const currentTime = BigInt(Date.now());
+
+     
+        const newIncident = ctx.db.incidents.insert({
+            incidentId: 0n, 
+            category,
+            status: "active",
+            description,
+            lat,
+            lng
+        });
+
+       
+        ctx.db.timeline_events.insert({
+            eventId: 0n, 
+            incidentId: newIncident.incidentId,
+            eventType: "INCIDENT_CREATED",
+            message: `Incident created by ${user.name || user.phone}`,
+            timestamp: currentTime
+        });
+    }
+);  
+
+export const request_responder = spacetimedb.reducer(
+    {
+        incidentId: t.u64(),
+        responderPhone: t.string()
+    },
+    (ctx, { incidentId, responderPhone }) => {
+        const dispatcher = ctx.db.users.identity.find(ctx.sender);
+        if (!dispatcher || (dispatcher.role !== "dispatcher" && dispatcher.role !== "system")) {
+            throw new SenderError("Unauthorized: Only dispatchers can deploy responders.");
+        }
+
+        const responder = ctx.db.users.phone.find(responderPhone);
+        if (!responder || responder.role !== "responder") {
+            throw new SenderError("Valid responder phone number required.");
+        }
+
+        // Create the pending request (frontend can listen for this to show a pop-up!)
+        ctx.db.dispatch_requests.insert({
+            requestId: 0n, // autoInc
+            incidentId,
+            responderPhone,
+            status: "pending",
+            timestamp: BigInt(Date.now())
+        });
+    }
+);
+
+
+
+export const accept_dispatch = spacetimedb.reducer(
+    {
+        requestId: t.u64(),
+        lat: t.f64(),
+        lng: t.f64(),
+        subType: t.string() // "ambulance", "police", etc.
+    },
+    (ctx, { requestId, lat, lng, subType }) => {
+        const responder = ctx.db.users.identity.find(ctx.sender);
+        if (!responder || responder.role !== "responder") {
+            throw new SenderError("Unauthorized.");
+        }
+
+        const request = ctx.db.dispatch_requests.requestId.find(requestId);
+        if (!request || request.status !== "pending") {
+            throw new SenderError("Request not found or already handled.");
+        }
+
+        const currentTime = BigInt(Date.now());
+
+        
+        ctx.db.dispatch_requests.requestId.update({
+            ...request,
+            status: "accepted"
+        });
+
+        // 2. Put them on the live map using their ACTUAL device GPS
+        const existingMarker = ctx.db.live_entities.id.find(ctx.sender);
+        if (existingMarker) {
+            ctx.db.live_entities.id.update({
+                ...existingMarker,
+                status: "dispatched",
+                lat,
+                lng,
+                lastSeen: currentTime
+            });
+        } else {
+            ctx.db.live_entities.insert({
+                id: ctx.sender,
+                userPhone: responder.phone,
+                type: "responder",
+                subType,
+                status: "dispatched",
+                lat,
+                lng,
+                lastSeen: currentTime
+            });
+        }
+
+        // 3. Log it to the timeline
+        ctx.db.timeline_events.insert({
+            eventId: 0n, 
+            incidentId: request.incidentId,
+            eventType: "RESPONDER_ACCEPTED",
+            message: `Responder ${responder.name || responder.phone} is en route.`,
+            timestamp: currentTime
+        });
+    }
+);
+
+
+
+
+
+
+
+
+
+
+
+// --- LIFECYCLE HOOKS ---
+
+
+
+
+
+
+
+
+export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
+    
+    const existingMarker = ctx.db.live_entities.id.find(ctx.sender);
+    
+    if (existingMarker) {
+        // Mark them as offline so the frontend knows to fade/remove their dot
+        ctx.db.live_entities.id.update({
+            ...existingMarker,
+            status: "offline"
+        });
+    }
+});
