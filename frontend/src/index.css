@@ -16,3 +16,94 @@
     @apply bg-cream text-espresso antialiased overflow-hidden font-sans;
   }
 }
+
+
+
+
+
+/* ── Leaflet overrides ─────────────────────────────── */
+.leaflet-container {
+  height: 100vh;
+  width: 100vw;
+  font-family: var(--font-sans) !important;
+  background: #0d1117 !important;
+}
+
+/* Custom dark tile filter */
+.leaflet-tile {
+  filter: brightness(0.6) saturate(0.4) hue-rotate(180deg) invert(1);
+}
+
+/* ── Custom emoji marker ─────────────────────────────── */
+.responder-icon {
+  font-size: 28px;
+  line-height: 1;
+  text-align: center;
+  cursor: grab;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+  user-select: none;
+}
+
+.responder-icon:active {
+  cursor: grabbing;
+}
+
+/* ── Blinking distress signal ─────────────────────────── */
+@keyframes distress-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.3;
+    transform: scale(0.75);
+  }
+}
+
+.distress-blink {
+  animation: distress-blink 1s ease-in-out infinite;
+}
+
+/* ── Pulsing ring for incidents ─────────────────────────── */
+@keyframes incident-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* ── Glass panel ─────────────────────────────────────── */
+.glass-panel {
+  background: rgb(33, 32, 32);
+ 
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ── Scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}

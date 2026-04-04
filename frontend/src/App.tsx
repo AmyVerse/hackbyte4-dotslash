@@ -1,9 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import MapComponent from './components/MapComponent';
 import Feed from './pages/Feed';
 import About from './pages/About';
+import GodModeMap from './components/GodModeMap';
 
 const Navigation = () => {
   const location = useLocation();
@@ -123,8 +124,9 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <Routes>
+      <Route path="/godmode" element={<GodModeMap />} />
+      <Route path="/*" element={<AppContent />} />
+    </Routes>
   );
 }

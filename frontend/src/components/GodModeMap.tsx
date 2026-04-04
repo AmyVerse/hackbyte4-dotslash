@@ -32,6 +32,7 @@ import {
   Activity,
 } from 'lucide-react'
 
+import styles from './godmode.module.css'
 // ── SpacetimeDB React hooks ────────────────────────────────────────────
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { Identity } from 'spacetimedb'
@@ -232,7 +233,7 @@ export default function GodModeMap() {
 
   // ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
+    <div style={styles}>
 
       {/* ══ Leaflet Map ══════════════════════════════════════════════ */}
       <MapContainer
