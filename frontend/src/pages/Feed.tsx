@@ -1,21 +1,78 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useSpacetimeDB, useTable } from 'spacetimedb/react'
+import IncidentReporter from '../components/IncidentReporter'
 import { tables } from '../module_bindings'
 import type { DistressSignals, Incidents } from '../module_bindings/types'
 
 const formatTime = (timestamp: bigint | number) => {
   const date = new Date(Number(timestamp))
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 const buildSignalCategory = (signal: DistressSignals, incident?: Incidents) => {
-  if (incident?.category) return incident.category.toUpperCase()
-  if (signal.severity >= 5) return 'CRITICAL'
-  if (signal.severity >= 3) return 'EMERGENCY'
-  return 'ALERT'
+  if (incident?.category) return incident.category.toLowerCase()
+  if (signal.status === 'resolved') return 'resolved'
+  return 'emergency'
 }
+
+const parseAIContent = (content: string = "") => {
+  const lines = content.split('\n').filter(l => l.trim() !== "");
+
+  // Try to find a line starting with ### for the title
+  let titleIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('### ')) {
+      titleIndex = i;
+      break;
+    }
+  }
+
+  // Determine Title and Body
+  let title = "Tactical Alert";
+  let cleanBodyLines = lines;
+
+  if (titleIndex !== -1) {
+    // We have an explicit Markdown title
+    title = lines[titleIndex].replace('### ', '').trim();
+    cleanBodyLines = lines.filter((_, i) => i !== titleIndex);
+  } else if (lines.length > 1) {
+    // More than one line and no explicit title, use first as title
+    title = lines[0].replace(/[*#]/g, '').trim();
+    cleanBodyLines = lines.slice(1);
+  } else {
+    // Only one line, use it as body, title stays default
+    title = "Tactical Alert";
+    cleanBodyLines = lines;
+  }
+
+  // Extract Hashtags and Severity
+  const hashtags = content.match(/#[a-zA-Z0-9]+/g) || [];
+  const severityMatch = content.match(/\*\*Severity\*\*:\s*([^\n\r]+)/i);
+  const severity = severityMatch ? severityMatch[1].trim() : null;
+
+  const cleanBody = cleanBodyLines
+    .join('\n')
+    .replace(/\*\*Severity\*\*:\s*.+/i, '')
+    .replace(/#[a-zA-Z0-9]+ ?/g, '')
+    .trim();
+
+  return { title, hashtags, cleanBody, severity };
+}
+
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  if (d < 1) return `${(d * 1000).toFixed(0)}m away`;
+  return `${d.toFixed(1)}km away`;
+};
 
 const Feed = () => {
   const { isActive: connected } = useSpacetimeDB()
@@ -23,6 +80,17 @@ const Feed = () => {
   const [timelineEvents = []] = useTable(tables.timeline_events)
   const [incidents = []] = useTable(tables.incidents)
   const [entities = []] = useTable(tables.live_entities)
+
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string | number, boolean>>({});
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      });
+    }
+  }, []);
 
   const feedItems = useMemo(() => {
     const incidentById = new Map<number, Incidents>()
@@ -37,19 +105,19 @@ const Feed = () => {
 
     const timelineItems = [...timelineEvents].map((event) => {
       const incident = incidentById.get(Number(event.incidentId))
-      const location = (incident?.lat !== undefined && incident?.lng !== undefined)
-        ? `${incident.lat.toFixed(6)}, ${incident.lng.toFixed(6)}`
-        : 'UNKNOWN_COORD'
       return {
-        id: Number(event.eventId) * 1000,
-        status: event.eventType.replace(/_/g, ' ').toUpperCase(),
-        category: incident?.category.toUpperCase() ?? 'TIMELINE',
-        location,
-        description: incident?.description || event.message,
-        timestamp: formatTime(event.timestamp),
-        reporter: incident ? `NODE_${incident.incidentId}` : 'SYS_KERNEL',
+        id: `event-${event.eventId}`,
+        incidentId: event.incidentId,
+        category: incident?.category.toLowerCase() ?? 'timeline',
+        status: event.eventType.toLowerCase(),
+        location: (incident?.lat !== undefined && incident?.lng !== undefined)
+          ? `${incident.lat.toFixed(6)}, ${incident.lng.toFixed(6)}`
+          : 'UNKNOWN',
         lat: incident?.lat,
         lng: incident?.lng,
+        reporter: incident ? `NODE_${incident.incidentId}` : 'SYS_KERNEL',
+        description: event.message,
+        timestamp: formatTime(event.timestamp),
         sortKey: Number(event.timestamp),
       }
     })
@@ -61,20 +129,19 @@ const Feed = () => {
       const lat = incident?.lat ?? entity?.lat
       const lng = incident?.lng ?? entity?.lng
 
-      const location = (lat !== undefined && lng !== undefined)
-        ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-        : 'LOC_ACQUIRING...'
-
       return {
-        id: Number(signal.signalId),
-        status: signal.status.toUpperCase(),
+        id: `signal-${signal.signalId}`,
+        incidentId: signal.incidentId !== null ? signal.incidentId : 'SIGNAL',
         category: buildSignalCategory(signal, incident),
-        location,
-        description: incident?.description || signal.message,
-        timestamp: formatTime(signal.timestamp),
-        reporter: signal.userPhone || 'ANON_CLIENT',
+        status: signal.status.toLowerCase(),
+        location: (lat !== undefined && lng !== undefined)
+          ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+          : 'LOCATING...',
         lat,
         lng,
+        reporter: `NODE_${String(signal.signalId).slice(-4)}`,
+        description: signal.message,
+        timestamp: formatTime(signal.timestamp),
         sortKey: Number(signal.timestamp),
       }
     })
@@ -83,94 +150,159 @@ const Feed = () => {
   }, [signals, timelineEvents, incidents, entities])
 
   return (
-    <div className="py-6 md:pt-10 pb-96">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 md:mb-16 px-2 gap-4">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-espresso mb-1 md:mb-2 leading-none">Live Archive</h1>
-          <p className="text-[11px] md:text-[14px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-espresso/40">Real-time Tactical Event Stream</p>
-        </div>
-        <div className="text-left md:text-right">
-          <p className="text-2xl md:text-4xl font-black text-espresso leading-none">{feedItems.length}</p>
-          <p className="text-[10px] md:text-[12px] font-black uppercase tracking-widest text-espresso/40 mt-1">Active Signals</p>
-          <p className="text-[10px] md:text-[12px] uppercase tracking-[0.3em] text-emerald-700 mt-1">{connected ? 'Connected' : 'Disconnected'}</p>
+    <div className="py-6 md:py-7 mx-auto w-full">
+      <div className="sticky top-0 z-40 bg-[#fbf9f4] pt-3 pb-3 border-b border-espresso/20 mb-6 md:mb-8 px-2">
+        <div className="flex flex-row justify-between items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-5xl font-black tracking-tight text-espresso leading-none truncate overflow-hidden">Live Archive</h1>
+            <p className="hidden md:block text-[14px] font-black uppercase tracking-[0.35em] text-espresso/40 mt-2">Real-time Tactical Event Stream</p>
+          </div>
+          <div className="flex items-center gap-3 md:gap-4 shrink-0 text-right">
+            <div className="flex flex-row md:flex-col items-center md:items-end gap-1.5 md:gap-0">
+              <p className="text-xl md:text-4xl font-black text-espresso leading-none tracking-normal">{feedItems.length}</p>
+              <p className="text-[10px] md:text-[12px] font-black uppercase tracking-[.2em] md:tracking-[0.35em] text-espresso/40">Signals</p>
+              <div className="hidden md:block">
+                <p className="text-[10px] md:text-[12px] uppercase tracking-[0.35em] text-emerald-700">{connected ? 'Connected' : 'Disconnected'}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-8 md:space-y-12">
-        {feedItems.length === 0 ? (
-          <div className="rounded-3xl border border-outline/20 bg-white/80 p-10 text-center text-espresso/60">
-            Loading the incident feed...
-          </div>
-        ) : (
-          feedItems.map((signal, index) => (
-            <motion.div
-              key={signal.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.08, duration: 0.45 }}
-              className="group relative"
-            >
-              <div className="bg-white border border-outline/20 p-5 md:p-8 flex flex-col md:flex-row gap-6 md:gap-10 hover:border-outline/50 transition-all duration-300">
-                <div className="w-full md:w-1/4 flex flex-row md:flex-col justify-between border-b md:border-b-0 md:border-r border-outline/20 pb-4 md:pb-0 md:pr-8">
-                  <div>
-                    <div className={`inline-block px-2 md:px-3 py-0.5 md:py-1 mb-4 md:mb-6 text-[9px] md:text-[10px] font-black tracking-[.2em] border ${signal.status === 'PENDING' ? 'bg-terracotta text-white border-terracotta' :
-                      signal.status === 'ASSIGNED' ? 'bg-espresso text-white border-espresso' :
-                        signal.status === 'RESOLVED' ? 'bg-forest-700 text-white border-forest-700' :
-                          'bg-white text-espresso border-outline'
-                      }`}>
-                      {signal.status}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 md:gap-7 items-start px-2">
+        <div className="sm:col-span-2 space-y-8 md:space-y-12 min-w-0">
+          {feedItems.length === 0 ? (
+            <div className="rounded-xs border border-espresso/20 bg-white/80 p-10 text-center text-espresso/60">
+              Loading the incident feed...
+            </div>
+          ) : (
+            feedItems.map((item, index) => {
+              const { title, hashtags, cleanBody, severity } = parseAIContent(item.description);
+              const isExpanded = expandedDescriptions[item.id] || false;
+              const displayBody = cleanBody || item.description;
+              const displayTitle = title || "Tactical Alert";
+
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.08, duration: 0.45 }}
+                  className="bg-white border border-espresso/20 rounded-sm shadow-sm overflow-hidden"
+                >
+                  {/* Geographic Banner */}
+                  <div className="bg-surface/50 border-b border-espresso/5 px-4 py-3 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 text-terracotta">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
+                      <span className="text-[10px] md:text-[11px] font-black text-espresso/60 uppercase tracking-[0.3em] truncate max-w-[150px] md:max-w-none">
+                        {item.location}
+                      </span>
                     </div>
-                    <h3 className="hidden md:block text-[11px] md:text-[13px] font-bold text-espresso/40 tracking-widest uppercase mb-1">Category</h3>
-                    <p className="text-sm md:text-lg font-black text-espresso tracking-tight uppercase md:normal-case">{signal.category}</p>
-                  </div>
-
-                  <div className="md:mt-8 text-right md:text-left">
-                    <h3 className="hidden md:block text-[11px] md:text-[13px] font-bold text-espresso/40 tracking-widest uppercase mb-1">Time</h3>
-                    <p className="text-sm md:text-lg font-black text-espresso tracking-tight">{signal.timestamp}</p>
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <div className="flex flex-col sm:flex-row justify-between items-start mb-4 md:mb-6 gap-4">
-                    <div>
-                      <h3 className="text-[11px] md:text-[13px] font-bold text-espresso/40 tracking-widest uppercase mb-1">Location Coordinates</h3>
-                      <p className="text-sm md:text-lg font-black text-espresso tracking-tight">{signal.location}</p>
-                    </div>
-                    <div className="sm:text-right">
-                      <h3 className="text-[11px] md:text-[13px] font-bold text-espresso/40 tracking-widest uppercase mb-1">Reporting Node</h3>
-                      <p className="text-sm md:text-lg font-black text-espresso tracking-tight">{signal.reporter}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 md:mt-10">
-                    <h3 className="text-[11px] md:text-[13px] font-bold text-espresso/40 tracking-widest uppercase mb-2 md:mb-4">Detail Description</h3>
-                    <p className="text-xl md:text-2xl font-black text-espresso leading-[1.2] md:leading-[1.1] tracking-tighter">
-                      {signal.description}
-                    </p>
-                  </div>
-
-                  <div className="mt-8 md:mt-12 flex flex-col sm:flex-row gap-3 md:gap-4 font-sans font-bold">
-                    {signal.lat !== undefined && signal.lng !== undefined ? (
-                      <Link
-                        to={`/map?lat=${signal.lat}&lng=${signal.lng}`}
-                        className="flex-1 sm:flex-none px-6 py-3 bg-espresso text-white text-[11px] md:text-[12px] font-black tracking-[.2em] hover:bg-espresso/90 transition-colors uppercase cursor-pointer text-center"
-                      >
-                        TRACK
-                      </Link>
-                    ) : (
-                      <button className="flex-1 sm:flex-none px-6 py-3 bg-espresso/50 text-white text-[11px] md:text-[12px] font-black tracking-[.2em] uppercase cursor-not-allowed text-center">
-                        TRACKING...
-                      </button>
+                    {userLocation && item.lat !== undefined && item.lng !== undefined && (
+                      <span className="text-[9px] md:text-[10px] font-black text-espresso/40 uppercase tracking-[0.2em] bg-espresso/5 px-2 py-1 rounded-xs border border-espresso/10 whitespace-nowrap">
+                        {calculateDistance(userLocation.lat, userLocation.lng, item.lat, item.lng)}
+                      </span>
                     )}
-                    <button className="flex-1 sm:flex-none px-6 py-3 border border-outline text-espresso text-[11px] md:text-[12px] font-black tracking-[.2em] hover:bg-surface/50 transition-colors uppercase cursor-pointer">
-                      REQUEST HELP
-                    </button>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4">
+                    {/* Left Strategic Data */}
+                    <div className="p-5 md:p-8 border-b md:border-b-0 md:border-r border-espresso/10 flex md:flex-col justify-between md:justify-start gap-4 md:space-y-6">
+                      <div>
+                        <h4 className="text-[9px] md:text-[10px] font-black text-espresso/30 uppercase tracking-[0.3em] mb-1">Incident ID</h4>
+                        <p className="text-base md:text-lg font-bold text-espresso tracking-tight">#{item.incidentId}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-[9px] md:text-[10px] font-black text-espresso/30 uppercase tracking-[0.3em] mb-1">Category</h4>
+                        <p className="text-base md:text-lg font-bold text-espresso tracking-tight capitalize">{item.category}</p>
+                        {severity && (
+                          <span className="hidden md:inline-block mt-2 text-[9px] font-black bg-terracotta/10 text-terracotta px-2 py-0.5 rounded-xs border border-terracotta/20 uppercase tracking-[0.2em]">
+                            {severity}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-[9px] md:text-[10px] font-black text-espresso/30 uppercase tracking-[0.3em] mb-1">Time</h4>
+                        <p className="text-base md:text-lg font-bold text-espresso tracking-tight">{item.timestamp}</p>
+                      </div>
+                    </div>
+
+                    {/* Main Tactical Analysis */}
+                    <div className="md:col-span-3 p-5 md:p-8 flex flex-col justify-between">
+                      <div>
+                        <h2 className="text-xl md:text-3xl font-black text-espresso leading-tight tracking-tight mb-4 md:mb-6">
+                          {displayTitle}
+                        </h2>
+
+                        <div className={`text-sm md:text-base font-medium text-espresso/80 leading-relaxed transition-all duration-300 ${isExpanded ? '' : 'line-clamp-3'}`}>
+                          {displayBody}
+                        </div>
+
+                        {displayBody.length > 200 && (
+                          <button
+                            onClick={() => setExpandedDescriptions(prev => ({ ...prev, [item.id]: !isExpanded }))}
+                            className="mt-3 text-[10px] font-black text-terracotta uppercase tracking-[0.2em] cursor-pointer hover:underline"
+                          >
+                            {isExpanded ? 'Read Less —' : 'Read Full Brief —'}
+                          </button>
+                        )}
+
+                        <div className="flex flex-wrap gap-2 mt-6">
+                          {hashtags.map(tag => (
+                            <span key={tag} className="text-[9px] md:text-[10px] font-black text-espresso/40 uppercase tracking-widest">{tag}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-8 pt-6 border-t border-espresso/5 flex flex-wrap gap-4">
+                        {item.incidentId !== 'SIGNAL' && (
+                          <Link
+                            to={`/map?lat=${item.lat}&lng=${item.lng}`}
+                            className="flex-1 sm:flex-none px-6 md:px-8 py-3 bg-espresso text-white text-[10px] md:text-[11px] font-black tracking-[0.3em] hover:bg-espresso/90 transition-all rounded-sm shadow-md text-center"
+                          >
+                            TRACK SIGNAL
+                          </Link>
+                        )}
+                        {item.lat !== undefined && item.lng !== undefined && (
+                          <Link
+                            to={`/incident/${item.incidentId}`}
+                            className="flex-1 sm:flex-none px-6 md:px-8 py-3 border border-espresso/20 text-espresso text-[10px] md:text-[11px] font-black tracking-[0.3em] hover:bg-espresso hover:text-white transition-all rounded-sm text-center"
+                          >
+                            VIEW UPDATES
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Right Column: Active Dispatch (Desktop/Tablet only) */}
+        <div className="hidden sm:block sm:col-span-1">
+          <div className="sticky space-y-8 min-w-0">
+            <div className="bg-white/40 backdrop-blur-md border border-espresso/10 rounded-sm p-4 md:px-2 shadow-sm transition-all duration-500 hover:bg-white/60">
+              <div className="space-y-12">
+                <div>
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.35em] text-espresso/30 mb-6 px-1">Deploy New Signal</h3>
+                  <IncidentReporter />
                 </div>
               </div>
-            </motion.div>
-          ))
-        )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky Mobile Reporter (Phone only) */}
+      <div className="sm:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[500px] z-3000">
+        <div>
+          <IncidentReporter />
+        </div>
       </div>
     </div>
   )
