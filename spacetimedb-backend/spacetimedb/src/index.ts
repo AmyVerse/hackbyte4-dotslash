@@ -397,7 +397,97 @@ export const reject_dispatch = spacetimedb.reducer(
 
 
 
+/**
+ * God Mode: Move any entity directly by its Primary Key (Identity)
+ */
+export const god_mode_move_entity = spacetimedb.reducer(
+    { 
+        targetId: t.identity(), // Pass the unique Identity of the marker
+        lat: t.f64(), 
+        lng: t.f64(), 
+        type: t.string(), 
+        subType: t.string() 
+    },
+    (ctx, { targetId, lat, lng, type, subType }) => {
+        const currentTime = BigInt(Date.now());
+        
+        // Use the built-in .id.find() which is the Primary Key
+        const existing = ctx.db.live_entities.id.find(targetId);
 
+        if (existing) {
+            ctx.db.live_entities.id.update({
+                ...existing,
+                lat,
+                lng,
+                type,
+                subType,
+                lastSeen: currentTime
+            });
+        } else {
+            // If they don't exist, we create them using the targetId
+            ctx.db.live_entities.insert({
+                id: targetId,
+                userPhone: undefined, // Keeps it anonymous/flexible
+                type,
+                subType,
+                status: "active",
+                lat,
+                lng,
+                lastSeen: currentTime,
+            });
+        }
+    }
+);
+
+
+
+export const seed_demo_data = spacetimedb.reducer(
+    {},
+    (ctx) => {
+        // Prevent double-seeding
+        if (Array.from(ctx.db.incidents.iter()).length > 0) return;
+
+        const currentTime = BigInt(Date.now());
+
+        // 1. ONE DISPATCHER (The person calling the seeder becomes the dispatcher)
+        ctx.db.users.insert({
+            identity: ctx.sender,
+            phone: "+10000000000",
+            name: "Central Command",
+            role: "dispatcher",
+            trustScore: 1.0
+        });
+
+        // 2. TWO INCIDENTS
+        const fireInc = ctx.db.incidents.insert({
+            incidentId: 0n, category: "fire", status: "active",
+            description: "Structure fire reported at Sector 5.",
+            lat: 40.7135, lng: -74.0055
+        });
+        const medInc = ctx.db.incidents.insert({
+            incidentId: 0n, category: "medical", status: "active",
+            description: "Severe road accident near the junction.",
+            lat: 40.7200, lng: -74.0100
+        });
+
+        // 3. THREE DISTRESS SIGNALS (SOS)
+        ctx.db.distress_signals.insert({
+            signalId: 0n, userPhone: "+19110001", incidentId: fireInc.incidentId,
+            severity: 5, message: "Smoke everywhere!", status: "assigned", timestamp: currentTime
+        });
+        ctx.db.distress_signals.insert({
+            signalId: 0n, userPhone: "+19110002", incidentId: medInc.incidentId,
+            severity: 4, message: "Car flipped over.", status: "assigned", timestamp: currentTime
+        });
+        ctx.db.distress_signals.insert({
+            signalId: 0n, userPhone: "+19110003", incidentId: undefined,
+            severity: 3, message: "Strange smell in the hallway.", status: "pending", timestamp: currentTime
+        });
+
+        // NOTE: For Responders, we let the God Mode tool spawn them 
+        // because each one needs a unique Identity string/object.
+    }
+);
 
 
 
