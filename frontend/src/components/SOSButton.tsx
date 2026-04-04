@@ -30,39 +30,43 @@ export default function SOSButton() {
     // START TRACKING
     if ('geolocation' in navigator) {
       setIsTracking(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
+      let distressSent = false;
+      
+      // We skip getCurrentPosition and go straight to watchPosition.
+      // By setting maximumAge: 60000, the browser instantly returns a cached location
+      // so the marker appears instantly, and then refines it as GPS warms up.
+      const id = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
           
-          // First send the distress signal which creates the entity
-          reportDistress({
-            severity: 5,
-            message: "Rescue needed!",
+          if (!distressSent) {
+            reportDistress({
+              severity: 5,
+              message: "Rescue needed!",
+              lat,
+              lng
+            });
+            distressSent = true;
+          }
+          
+          updateLocation({
             lat,
-            lng
+            lng,
+            type: 'responder',
+            subType: 'rescue'
           });
-          
-          // Start continuously tracking location and update the live entity
-          const id = navigator.geolocation.watchPosition(
-            (pos) => {
-              updateLocation({
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                type: 'responder',
-                subType: 'rescue'
-              });
-            },
-            (_error) => console.error("Error watching position", _error),
-            { enableHighAccuracy: true, maximumAge: 5000 }
-          );
-          setWatchId(id);
         },
         (_error) => {
-          alert('Geolocation is required to send an SOS.');
-          setIsTracking(false);
-        }
+          console.error("Error watching position", _error);
+          if (!distressSent) {
+            alert('Geolocation error: please ensure permissions are granted.');
+            setIsTracking(false);
+          }
+        },
+        { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
       );
+      setWatchId(id);
     } else {
       alert('Geolocation is not supported by your browser.');
     }
