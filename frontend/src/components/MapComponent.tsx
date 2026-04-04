@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +23,10 @@ const MapComponent = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<mapboxgl.Map | null>(null);
   const userMarker = useRef<mapboxgl.Marker | null>(null);
+  const [searchParams] = useSearchParams();
+  const paramLat = searchParams.get('lat');
+  const paramLng = searchParams.get('lng');
+
   const [isLocating, setIsLocating] = useState(false);
 
   // ── SpacetimeDB data ────────────────────────────────────────────
@@ -36,8 +41,11 @@ const MapComponent = () => {
   useEffect(() => {
     if (mapInstance.current || !mapContainer.current) return;
 
-    const initialCenter: [number, number] = lastKnownLocation || [77.2090, 28.6139];
-    const initialZoom = lastKnownLocation ? 16 : 12;
+    const initialCenter: [number, number] = (paramLat && paramLng) 
+      ? [parseFloat(paramLng), parseFloat(paramLat)] 
+      : lastKnownLocation || [77.2090, 28.6139];
+    
+    const initialZoom = (paramLat && paramLng) ? 16 : (lastKnownLocation ? 16 : 12);
 
     mapInstance.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -74,6 +82,18 @@ const MapComponent = () => {
       );
     }
   }, []);
+
+  // ── Handle incoming track parameters ────────────────────────────────
+  useEffect(() => {
+    if (!mapInstance.current || !paramLat || !paramLng) return;
+
+    mapInstance.current.flyTo({
+      center: [parseFloat(paramLng), parseFloat(paramLat)],
+      zoom: 16,
+      duration: 2000,
+      essential: true
+    });
+  }, [paramLat, paramLng]);
 
   // ── Add markers for responders ──────────────────────────────────────
   useEffect(() => {

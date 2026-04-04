@@ -93,7 +93,7 @@ const IncidentReporter = () => {
 
   const handleSubmit = async () => {
     if (!description.trim()) return;
-    
+
     setIsSubmitting(true);
     try {
       await createIncident({
@@ -150,7 +150,7 @@ const IncidentReporter = () => {
       <button
         onClick={handleSubmit}
         disabled={isSubmitting || !description.trim()}
-        className="bg-terracotta text-white py-4 md:py-5 font-black text-[12px] md:text-[14px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+        className="bg-terracotta text-white py-4 md:py-5 font-black text-[12px] md:text-[14px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-transform  disabled:cursor-not-allowed"
       >
         <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" className="md:w-[18px] md:h-[18px]">
           <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z" />
