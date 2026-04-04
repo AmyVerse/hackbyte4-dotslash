@@ -3,18 +3,13 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useSpacetimeDB, useTable } from 'spacetimedb/react'
 import IncidentReporter from '../components/IncidentReporter'
+import MarkdownContent from '../components/MarkdownContent'
 import { tables } from '../module_bindings'
-import type { DistressSignals, Incidents } from '../module_bindings/types'
+import type { Incidents } from '../module_bindings/types'
 
 const formatTime = (timestamp: bigint | number) => {
   const date = new Date(Number(timestamp))
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-const buildSignalCategory = (signal: DistressSignals, incident?: Incidents) => {
-  if (incident?.category) return incident.category.toLowerCase()
-  if (signal.status === 'resolved') return 'resolved'
-  return 'emergency'
 }
 
 const parseAIContent = (content: string = "") => {
@@ -76,10 +71,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const Feed = () => {
   const { isActive: connected } = useSpacetimeDB()
-  const [signals = []] = useTable(tables.distress_signals)
-  const [timelineEvents = []] = useTable(tables.timeline_events)
   const [incidents = []] = useTable(tables.incidents)
-  const [entities = []] = useTable(tables.live_entities)
 
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string | number, boolean>>({});
@@ -93,61 +85,23 @@ const Feed = () => {
   }, []);
 
   const feedItems = useMemo(() => {
-    const incidentById = new Map<number, Incidents>()
-    incidents.forEach((incident) => {
-      incidentById.set(Number(incident.incidentId), incident)
-    })
+    const incidentItems = [...incidents].map((incident) => ({
+      id: `incident-${incident.incidentId}`,
+      incidentId: incident.incidentId,
+      category: incident.category.toLowerCase(),
+      status: incident.status.toLowerCase(),
+      location: `${incident.lat.toFixed(6)}, ${incident.lng.toFixed(6)}`,
+      lat: incident.lat,
+      lng: incident.lng,
+      reporter: `COMMAND_NODE_${incident.incidentId}`,
+      description: incident.description,
+      timestamp: 'TIME NOT RECORDED',
+      sortKey: -Number(incident.incidentId),
+    }))
 
-    const entityByPhone = new Map<string, typeof entities[0]>()
-    entities.forEach(e => {
-      if (e.userPhone) entityByPhone.set(e.userPhone, e)
-    })
+    return incidentItems.sort((a, b) => a.sortKey - b.sortKey)
+  }, [incidents])
 
-    const timelineItems = [...timelineEvents].map((event) => {
-      const incident = incidentById.get(Number(event.incidentId))
-      return {
-        id: `event-${event.eventId}`,
-        incidentId: event.incidentId,
-        category: incident?.category.toLowerCase() ?? 'timeline',
-        status: event.eventType.toLowerCase(),
-        location: (incident?.lat !== undefined && incident?.lng !== undefined)
-          ? `${incident.lat.toFixed(6)}, ${incident.lng.toFixed(6)}`
-          : 'UNKNOWN',
-        lat: incident?.lat,
-        lng: incident?.lng,
-        reporter: incident ? `NODE_${incident.incidentId}` : 'SYS_KERNEL',
-        description: event.message,
-        timestamp: formatTime(event.timestamp),
-        sortKey: Number(event.timestamp),
-      }
-    })
-
-    const signalItems = [...signals].map((signal) => {
-      const incident = signal.incidentId != null ? incidentById.get(Number(signal.incidentId)) : undefined
-      const entity = signal.userPhone ? entityByPhone.get(signal.userPhone) : undefined
-
-      const lat = incident?.lat ?? entity?.lat
-      const lng = incident?.lng ?? entity?.lng
-
-      return {
-        id: `signal-${signal.signalId}`,
-        incidentId: signal.incidentId !== null ? signal.incidentId : 'SIGNAL',
-        category: buildSignalCategory(signal, incident),
-        status: signal.status.toLowerCase(),
-        location: (lat !== undefined && lng !== undefined)
-          ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-          : 'LOCATING...',
-        lat,
-        lng,
-        reporter: `NODE_${String(signal.signalId).slice(-4)}`,
-        description: signal.message,
-        timestamp: formatTime(signal.timestamp),
-        sortKey: Number(signal.timestamp),
-      }
-    })
-
-    return [...timelineItems, ...signalItems].sort((a, b) => b.sortKey - a.sortKey)
-  }, [signals, timelineEvents, incidents, entities])
 
   return (
     <div className="py-6 md:py-7 mx-auto w-full">
@@ -160,7 +114,7 @@ const Feed = () => {
           <div className="flex items-center gap-3 md:gap-4 shrink-0 text-right">
             <div className="flex flex-row md:flex-col items-center md:items-end gap-1.5 md:gap-0">
               <p className="text-xl md:text-4xl font-black text-espresso leading-none tracking-normal">{feedItems.length}</p>
-              <p className="text-[10px] md:text-[12px] font-black uppercase tracking-[.2em] md:tracking-[0.35em] text-espresso/40">Signals</p>
+              <p className="text-[10px] md:text-[12px] font-black uppercase tracking-[.2em] md:tracking-[0.35em] text-espresso/40">Incidents</p>
               <div className="hidden md:block">
                 <p className="text-[10px] md:text-[12px] uppercase tracking-[0.35em] text-emerald-700">{connected ? 'Connected' : 'Disconnected'}</p>
               </div>
@@ -177,6 +131,7 @@ const Feed = () => {
             </div>
           ) : (
             feedItems.map((item, index) => {
+              console.log('Rendering feed item:', item.description)
               const { title, hashtags, cleanBody, severity } = parseAIContent(item.description);
               const isExpanded = expandedDescriptions[item.id] || false;
               const displayBody = cleanBody || item.description;
@@ -238,7 +193,7 @@ const Feed = () => {
                         </h2>
 
                         <div className={`text-sm md:text-base font-medium text-espresso/80 leading-relaxed transition-all duration-300 ${isExpanded ? '' : 'line-clamp-3'}`}>
-                          {displayBody}
+                          <MarkdownContent content={displayBody} />
                         </div>
 
                         {displayBody.length > 200 && (

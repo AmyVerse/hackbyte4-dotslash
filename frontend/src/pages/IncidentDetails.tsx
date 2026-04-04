@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTable } from 'spacetimedb/react';
 import { motion } from 'framer-motion';
+import MarkdownContent from '../components/MarkdownContent';
 import { tables } from '../module_bindings';
 
 const IncidentDetails = () => {
@@ -61,8 +62,8 @@ const IncidentDetails = () => {
             <h2 className="text-2xl md:text-3xl font-black text-espresso mb-6 leading-tight tracking-tight">
               Tactical Briefing
             </h2>
-            <div className="text-lg md:text-xl font-medium text-espresso/80 whitespace-pre-line leading-relaxed tracking-normal">
-              {incident.description}
+            <div className="text-lg md:text-xl font-medium text-espresso/80 leading-relaxed tracking-normal">
+              <MarkdownContent content={incident.description} />
             </div>
           </div>
 
@@ -80,7 +81,9 @@ const IncidentDetails = () => {
                   <p className="text-[10px] font-black text-espresso/40 uppercase tracking-[0.35em] mb-1">
                     {new Date(Number(event.timestamp)).toLocaleTimeString()}
                   </p>
-                  <p className="font-bold text-espresso">{event.message}</p>
+                  <div className="text-base text-espresso leading-relaxed">
+                    <MarkdownContent content={event.message} />
+                  </div>
                 </div>
                 <span className="text-[9px] font-black bg-espresso/5 px-2 py-1 uppercase tracking-tight">
                   {event.eventType}
