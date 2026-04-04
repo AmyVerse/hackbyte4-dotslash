@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react'
-import { tables, reducers } from '../module_bindings'
-=======
 import { useMemo, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -69,86 +62,11 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   if (d < 1) return `${(d * 1000).toFixed(0)}m away`;
   return `${d.toFixed(1)}km away`;
 };
->>>>>>> ui1
 
 const Feed = () => {
   const { isActive: connected } = useSpacetimeDB()
   const [incidents = []] = useTable(tables.incidents)
 
-<<<<<<< HEAD
-  // ── SOS functionality ──────────────────────────────────────────────
-  const reportDistress = useReducer(reducers.reportDistress)
-  const [isRequestingSOS, setIsRequestingSOS] = useState(false)
-
-  const handleRequestSOS = async () => {
-    if (isRequestingSOS) return
-    setIsRequestingSOS(true)
-    try {
-      // Get current location
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000 // 5 minutes
-        })
-      })
-
-      await reportDistress({
-        severity: 4,
-        message: 'Emergency SOS requested from Feed page',
-        lat: position.coords.latitude,
-        lng: position.coords.longitude
-      })
-    } catch (error) {
-      console.error('Failed to send SOS:', error)
-    } finally {
-      setIsRequestingSOS(false)
-    }
-  }
-
-  const feedItems = useMemo(() => {
-    const incidentItems = [...incidents].map((incident) => {
-      const location = (incident.lat !== undefined && incident.lng !== undefined)
-        ? `${incident.lat.toFixed(6)}, ${incident.lng.toFixed(6)}`
-        : 'UNKNOWN_COORD'
-      return {
-        id: Number(incident.incidentId),
-        status: incident.status.toUpperCase(),
-        category: incident.category.toUpperCase(),
-        location,
-        description: incident.description,
-        timestamp: 'LIVE', // Incidents are ongoing
-        reporter: `NODE_${incident.incidentId}`,
-        lat: incident.lat,
-        lng: incident.lng,
-        sortKey: Number(incident.incidentId), // Sort by incident ID for now
-      }
-    })
-
-    return incidentItems.sort((a, b) => b.sortKey - a.sortKey)
-  }, [incidents])
-
-  return (
-    <div className="py-6 md:pt-10 pb-96">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 md:mb-16 px-2 gap-4">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-espresso mb-1 md:mb-2 leading-none">Active Incidents</h1>
-          <p className="text-[11px] md:text-[14px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-espresso/40">Live Emergency Response Dashboard</p>
-        </div>
-        <div className="flex flex-col items-end gap-4">
-          <div className="text-left md:text-right">
-            <p className="text-2xl md:text-4xl font-black text-espresso leading-none">{feedItems.length}</p>
-            <p className="text-[10px] md:text-[12px] font-black uppercase tracking-widest text-espresso/40 mt-1">Active Incidents</p>
-            <p className="text-[10px] md:text-[12px] uppercase tracking-[0.3em] text-emerald-700 mt-1">{connected ? 'Connected' : 'Disconnected'}</p>
-          </div>
-          <button
-            onClick={handleRequestSOS}
-            disabled={isRequestingSOS}
-            className="bg-terracotta text-white px-6 py-3 font-black text-sm tracking-widest uppercase shadow-2xl hover:bg-terracotta/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isRequestingSOS ? 'SENDING SOS...' : '🚨 SOS'}
-          </button>
-=======
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string | number, boolean>>({});
 
@@ -196,7 +114,6 @@ const Feed = () => {
               </div>
             </div>
           </div>
->>>>>>> ui1
         </div>
       </div>
 
