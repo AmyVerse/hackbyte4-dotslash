@@ -13,6 +13,7 @@ const EMOJI: Record<string, string> = {
   firetruck: '🚒',
   police:    '🚔',
   volunteer: '🙋',
+  rescue:    '🆘',
   default:   '🚨',
 }
 
