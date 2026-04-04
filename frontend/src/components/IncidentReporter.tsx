@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useReducer } from 'spacetimedb/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { reducers } from '../module_bindings';
@@ -14,6 +15,7 @@ const IncidentReporter = () => {
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const navigate = useNavigate();
 
   const createIncident = useReducer(reducers.createIncident);
 
@@ -73,15 +75,18 @@ const IncidentReporter = () => {
         lng: userLng,
       });
 
-      if (aiResponse.severity.toLowerCase() === 'critical' || aiResponse.severity.toLowerCase() === 'high') {
-        try {
-          fetch('https://rescue-api.amyverse.in/broadcast');
-        } catch (e) { }
-      }
+      /*  if (aiResponse.severity.toLowerCase() === 'critical' || aiResponse.severity.toLowerCase() === 'high') {
+         try {
+           fetch('https://rescue-api.amyverse.in/broadcast');
+         } catch (e) { }
+       } */
 
       setDescription('');
       setIsRecording(false);
       setRecordingSeconds(0);
+
+      // Go to upload page
+      navigate('/upload');
     } catch (error) {
       console.error('Failed to report incident:', error);
     } finally {
@@ -125,7 +130,7 @@ const IncidentReporter = () => {
   const cancelRecording = () => {
     if (mediaRecorder) {
       mediaRecorder.stop();
-      mediaRecorder.onstop = () => {}; // Prevent triggering submission
+      mediaRecorder.onstop = () => { }; // Prevent triggering submission
     }
     setIsRecording(false);
     setRecordingSeconds(0);

@@ -213,7 +213,7 @@ const Feed = () => {
                       </div>
 
                       <div className="mt-8 pt-6 border-t border-espresso/5 flex flex-wrap gap-4">
-                        {item.incidentId !== 'SIGNAL' && (
+                        {item.incidentId.toString() !== 'SIGNAL' && (
                           <Link
                             to={`/map?lat=${item.lat}&lng=${item.lng}`}
                             className="flex-1 sm:flex-none px-6 md:px-8 py-3 bg-espresso text-white text-[10px] md:text-[11px] font-black tracking-[0.3em] hover:bg-espresso/90 transition-all rounded-sm shadow-md text-center"

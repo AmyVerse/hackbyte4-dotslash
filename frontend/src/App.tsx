@@ -6,6 +6,8 @@ import Feed from './pages/Feed';
 import About from './pages/About';
 import IncidentDetails from './pages/IncidentDetails';
 import GodModeMap from './components/GodModeMap';
+import Upload from './pages/Upload';
+import Success from './pages/Success';
 
 const Navigation = () => {
   const location = useLocation();
@@ -101,6 +103,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/godmode" element={<GodModeMap />} />
+      <Route path="/upload" element={<Upload />} />
+      <Route path="/success" element={<Success />} />
       <Route path="/*" element={<AppContent />} />
     </Routes>
   );
