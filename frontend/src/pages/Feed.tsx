@@ -5,12 +5,6 @@ import { useSpacetimeDB, useTable } from 'spacetimedb/react'
 import IncidentReporter from '../components/IncidentReporter'
 import MarkdownContent from '../components/MarkdownContent'
 import { tables } from '../module_bindings'
-import type { Incidents } from '../module_bindings/types'
-
-const formatTime = (timestamp: bigint | number) => {
-  const date = new Date(Number(timestamp))
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
 
 const parseAIContent = (content: string = "") => {
   const lines = content.split('\n').filter(l => l.trim() !== "");
@@ -213,12 +207,12 @@ const Feed = () => {
                       </div>
 
                       <div className="mt-8 pt-6 border-t border-espresso/5 flex flex-wrap gap-4">
-                        {item.incidentId !== 'SIGNAL' && (
+                        {item.lat !== undefined && item.lng !== undefined && (
                           <Link
                             to={`/map?lat=${item.lat}&lng=${item.lng}`}
                             className="flex-1 sm:flex-none px-6 md:px-8 py-3 bg-espresso text-white text-[10px] md:text-[11px] font-black tracking-[0.3em] hover:bg-espresso/90 transition-all rounded-sm shadow-md text-center"
                           >
-                            TRACK SIGNAL
+                            TRACK INCIDENT
                           </Link>
                         )}
                         {item.lat !== undefined && item.lng !== undefined && (
