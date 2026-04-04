@@ -1,88 +1,18 @@
-/* ============================================================
-   Rescue Link – Global Styles
-   ============================================================ */
+@import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@theme {
+  --color-espresso: #553a34;
+  --color-terracotta: #974726;
+  --color-sienna: #553d00;
+  --color-cream: #fcf9f4;
+  --color-surface: #ebe8e3;
+  --color-outline: #dac2b6;
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  --font-sans: "Plus Jakarta Sans", "Outfit", sans-serif;
 }
 
-:root {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --glass-bg: rgba(10, 15, 30, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-blur: 16px;
-  --accent-red: #ff3b30;
-  --accent-orange: #ff9500;
-  --accent-blue: #0a84ff;
-  --accent-green: #30d158;
-  --text-primary: #f5f5f7;
-  --text-secondary: #a1a1aa;
+@layer base {
+  body {
+    @apply bg-cream text-espresso antialiased overflow-hidden font-sans;
+  }
 }
-
-html, body, #root {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-  font-family: var(--font-sans);
-  background: #0a0f1e;
-  color: var(--text-primary);
-}
-
-/* ── Leaflet overrides ─────────────────────────────── */
-.leaflet-container {
-  height: 100vh;
-  width: 100vw;
-  font-family: var(--font-sans) !important;
-  background: #0d1117 !important;
-}
-
-/* Custom dark tile filter */
-.leaflet-tile {
-  filter: brightness(0.6) saturate(0.4) hue-rotate(180deg) invert(1);
-}
-
-/* ── Custom emoji marker ─────────────────────────────── */
-.responder-icon {
-  font-size: 28px;
-  line-height: 1;
-  text-align: center;
-  cursor: grab;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
-  user-select: none;
-}
-.responder-icon:active { cursor: grabbing; }
-
-/* ── Blinking distress signal ─────────────────────────── */
-@keyframes distress-blink {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.3; transform: scale(0.75); }
-}
-.distress-blink {
-  animation: distress-blink 1s ease-in-out infinite;
-}
-
-/* ── Pulsing ring for incidents ─────────────────────────── */
-@keyframes incident-pulse {
-  0%   { transform: scale(1);   opacity: 0.8; }
-  70%  { transform: scale(1.6); opacity: 0;   }
-  100% { transform: scale(1.6); opacity: 0;   }
-}
-
-/* ── Glass panel ─────────────────────────────────────── */
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
-}
-
-/* ── Scrollbar ───────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }

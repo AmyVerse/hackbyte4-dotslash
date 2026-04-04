@@ -1,3 +1,4 @@
 {
-  "database": "rescue-link-db-7jiq3"
+  "database": "rescue-link-db-7jiq3",
+  "server": "http://localhost:3000"
 }

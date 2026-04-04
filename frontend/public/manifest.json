@@ -1,0 +1,17 @@
+{
+  "name": "Rescue Link: Operational Archive",
+  "short_name": "R_LINK",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcf9f4",
+  "theme_color": "#553a34",
+  "description": "Decentralized, real-time response network built for field-ops and humanitarian coordination.",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
