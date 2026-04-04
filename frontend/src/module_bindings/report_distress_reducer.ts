@@ -13,4 +13,6 @@ import {
 export default {
   severity: __t.u32(),
   message: __t.string(),
+  lat: __t.f64(),
+  lng: __t.f64(),
 };

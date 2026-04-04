@@ -277,27 +277,13 @@ export default function GodModeMap() {
           </CircleMarker>
         ))}
 
-        {/* ─── Distress live_entities (type=distress): orange, always blinking ─── */}
+        {/* ─── Distress live_entities (type=distress): draggable markers ─── */}
         {distressMarkers.map((e: LiveEntities) => (
-          <CircleMarker
+          <ResponderMarker
             key={e.id.toHexString()}
-            center={[e.lat, e.lng]}
-            radius={10}
-            className="distress-blink"
-            pathOptions={{
-              color:       '#ff9500',
-              fillColor:   '#ff9500',
-              fillOpacity: 0.55,
-              weight:      2,
-            }}
-          >
-            <Popup>
-              <div style={{ fontFamily: 'Inter, sans-serif' }}>
-                <p style={{ fontWeight: 700, color: '#ff9500' }}>🆘 DISTRESS</p>
-                <p style={{ fontSize: 12, marginTop: 4 }}>Status: {e.status}</p>
-              </div>
-            </Popup>
-          </CircleMarker>
+            entity={e}
+            onDrag={handleDrag}
+          />
         ))}
 
         {/* ─── SOS distress_signals table: pending = blinking ─── */}

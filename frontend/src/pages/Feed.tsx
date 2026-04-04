@@ -1,98 +1,91 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useSpacetimeDB, useTable } from 'spacetimedb/react'
-import { tables } from '../module_bindings'
-import type { DistressSignals, Incidents } from '../module_bindings/types'
+import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react'
+import { tables, reducers } from '../module_bindings'
+import type { Incidents } from '../module_bindings/types'
 
 const formatTime = (timestamp: bigint | number) => {
   const date = new Date(Number(timestamp))
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-const buildSignalCategory = (signal: DistressSignals, incident?: Incidents) => {
-  if (incident?.category) return incident.category.toUpperCase()
-  if (signal.severity >= 5) return 'CRITICAL'
-  if (signal.severity >= 3) return 'EMERGENCY'
-  return 'ALERT'
-}
-
 const Feed = () => {
   const { isActive: connected } = useSpacetimeDB()
-  const [signals = []] = useTable(tables.distress_signals)
-  const [timelineEvents = []] = useTable(tables.timeline_events)
   const [incidents = []] = useTable(tables.incidents)
-  const [entities = []] = useTable(tables.live_entities)
+
+  // ── SOS functionality ──────────────────────────────────────────────
+  const reportDistress = useReducer(reducers.reportDistress)
+  const [isRequestingSOS, setIsRequestingSOS] = useState(false)
+
+  const handleRequestSOS = async () => {
+    if (isRequestingSOS) return
+    setIsRequestingSOS(true)
+    try {
+      // Get current location
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        })
+      })
+
+      await reportDistress({
+        severity: 4,
+        message: 'Emergency SOS requested from Feed page',
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      })
+    } catch (error) {
+      console.error('Failed to send SOS:', error)
+    } finally {
+      setIsRequestingSOS(false)
+    }
+  }
 
   const feedItems = useMemo(() => {
-    const incidentById = new Map<number, Incidents>()
-    incidents.forEach((incident) => {
-      incidentById.set(Number(incident.incidentId), incident)
-    })
-
-    const entityByPhone = new Map<string, typeof entities[0]>()
-    entities.forEach(e => {
-      if (e.userPhone) entityByPhone.set(e.userPhone, e)
-    })
-
-    const timelineItems = [...timelineEvents].map((event) => {
-      const incident = incidentById.get(Number(event.incidentId))
-      const location = (incident?.lat !== undefined && incident?.lng !== undefined)
+    const incidentItems = [...incidents].map((incident) => {
+      const location = (incident.lat !== undefined && incident.lng !== undefined)
         ? `${incident.lat.toFixed(6)}, ${incident.lng.toFixed(6)}`
         : 'UNKNOWN_COORD'
       return {
-        id: Number(event.eventId) * 1000,
-        status: event.eventType.replace(/_/g, ' ').toUpperCase(),
-        category: incident?.category.toUpperCase() ?? 'TIMELINE',
+        id: Number(incident.incidentId),
+        status: incident.status.toUpperCase(),
+        category: incident.category.toUpperCase(),
         location,
-        description: incident?.description || event.message,
-        timestamp: formatTime(event.timestamp),
-        reporter: incident ? `NODE_${incident.incidentId}` : 'SYS_KERNEL',
-        lat: incident?.lat,
-        lng: incident?.lng,
-        sortKey: Number(event.timestamp),
+        description: incident.description,
+        timestamp: 'LIVE', // Incidents are ongoing
+        reporter: `NODE_${incident.incidentId}`,
+        lat: incident.lat,
+        lng: incident.lng,
+        sortKey: Number(incident.incidentId), // Sort by incident ID for now
       }
     })
 
-    const signalItems = [...signals].map((signal) => {
-      const incident = signal.incidentId != null ? incidentById.get(Number(signal.incidentId)) : undefined
-      const entity = signal.userPhone ? entityByPhone.get(signal.userPhone) : undefined
-
-      const lat = incident?.lat ?? entity?.lat
-      const lng = incident?.lng ?? entity?.lng
-
-      const location = (lat !== undefined && lng !== undefined)
-        ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-        : 'LOC_ACQUIRING...'
-
-      return {
-        id: Number(signal.signalId),
-        status: signal.status.toUpperCase(),
-        category: buildSignalCategory(signal, incident),
-        location,
-        description: incident?.description || signal.message,
-        timestamp: formatTime(signal.timestamp),
-        reporter: signal.userPhone || 'ANON_CLIENT',
-        lat,
-        lng,
-        sortKey: Number(signal.timestamp),
-      }
-    })
-
-    return [...timelineItems, ...signalItems].sort((a, b) => b.sortKey - a.sortKey)
-  }, [signals, timelineEvents, incidents, entities])
+    return incidentItems.sort((a, b) => b.sortKey - a.sortKey)
+  }, [incidents])
 
   return (
     <div className="py-6 md:pt-10 pb-96">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 md:mb-16 px-2 gap-4">
         <div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-espresso mb-1 md:mb-2 leading-none">Live Archive</h1>
-          <p className="text-[11px] md:text-[14px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-espresso/40">Real-time Tactical Event Stream</p>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-espresso mb-1 md:mb-2 leading-none">Active Incidents</h1>
+          <p className="text-[11px] md:text-[14px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-espresso/40">Live Emergency Response Dashboard</p>
         </div>
-        <div className="text-left md:text-right">
-          <p className="text-2xl md:text-4xl font-black text-espresso leading-none">{feedItems.length}</p>
-          <p className="text-[10px] md:text-[12px] font-black uppercase tracking-widest text-espresso/40 mt-1">Active Signals</p>
-          <p className="text-[10px] md:text-[12px] uppercase tracking-[0.3em] text-emerald-700 mt-1">{connected ? 'Connected' : 'Disconnected'}</p>
+        <div className="flex flex-col items-end gap-4">
+          <div className="text-left md:text-right">
+            <p className="text-2xl md:text-4xl font-black text-espresso leading-none">{feedItems.length}</p>
+            <p className="text-[10px] md:text-[12px] font-black uppercase tracking-widest text-espresso/40 mt-1">Active Incidents</p>
+            <p className="text-[10px] md:text-[12px] uppercase tracking-[0.3em] text-emerald-700 mt-1">{connected ? 'Connected' : 'Disconnected'}</p>
+          </div>
+          <button
+            onClick={handleRequestSOS}
+            disabled={isRequestingSOS}
+            className="bg-terracotta text-white px-6 py-3 font-black text-sm tracking-widest uppercase shadow-2xl hover:bg-terracotta/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRequestingSOS ? 'SENDING SOS...' : '🚨 SOS'}
+          </button>
         </div>
       </div>
 

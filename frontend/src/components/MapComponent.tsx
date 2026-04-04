@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTable } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
-import type { LiveEntities, Incidents } from '../module_bindings/types';
+import type { LiveEntities, Incidents, DistressSignals } from '../module_bindings/types';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -32,10 +32,35 @@ const MapComponent = () => {
   // ── SpacetimeDB data ────────────────────────────────────────────
   const [allEntities] = useTable(tables.live_entities);
   const [allIncidents] = useTable(tables.incidents);
+  const [allSignals] = useTable(tables.distress_signals);
+
 
   // ── Derived data ────────────────────────────────────────────────
   const responders = useMemo(() => allEntities.filter((e: LiveEntities) => e.type === 'responder'), [allEntities]);
-  const distressMarkers = useMemo(() => allEntities.filter((e: LiveEntities) => e.type === 'distress'), [allEntities]);
+  const distressSignals = useMemo(() => {
+    const incidentById = new Map<number, Incidents>();
+    allIncidents.forEach((incident) => {
+      incidentById.set(Number(incident.incidentId), incident);
+    });
+    const entityByPhone = new Map<string, LiveEntities>();
+    allEntities.forEach((e) => {
+      if (e.userPhone) entityByPhone.set(e.userPhone, e);
+    });
+
+    return allSignals.map((signal: DistressSignals) => {
+      const incident = signal.incidentId != null ? incidentById.get(Number(signal.incidentId)) : undefined;
+      const entity = signal.userPhone ? entityByPhone.get(signal.userPhone) : undefined;
+
+      const lat = incident?.lat ?? entity?.lat;
+      const lng = incident?.lng ?? entity?.lng;
+
+      return {
+        ...signal,
+        lat,
+        lng,
+      };
+    }).filter((s) => s.lat !== undefined && s.lng !== undefined);
+  }, [allSignals, allIncidents, allEntities]);
   const activeIncidents = useMemo(() => allIncidents.filter((i: Incidents) => i.status === 'active'), [allIncidents]);
 
   useEffect(() => {
@@ -103,9 +128,9 @@ const MapComponent = () => {
 
     responders.forEach((entity: LiveEntities) => {
       const el = document.createElement('div');
-      el.innerHTML = `<span role="img" aria-label="${entity.subType}" style="font-size: 24px;">${EMOJI[entity.subType] ?? EMOJI.default}</span>`;
-      el.style.width = '36px';
-      el.style.height = '36px';
+      el.innerHTML = `<span role="img" aria-label="${entity.subType}" style="font-size: 36px;">${EMOJI[entity.subType] ?? EMOJI.default}</span>`;
+      el.style.width = '48px';
+      el.style.height = '48px';
       el.style.display = 'flex';
       el.style.alignItems = 'center';
       el.style.justifyContent = 'center';
@@ -142,28 +167,29 @@ const MapComponent = () => {
 
     const markers: mapboxgl.Marker[] = [];
 
-    distressMarkers.forEach((entity: LiveEntities) => {
+    distressSignals.forEach((signal) => {
       const el = document.createElement('div');
-      el.innerHTML = '<span role="img" aria-label="distress" style="font-size: 24px;">🚨</span>';
-      el.style.width = '36px';
-      el.style.height = '36px';
+      el.innerHTML = '<span role="img" aria-label="distress" style="font-size: 36px; color: #3b82f6;">🚨</span>';
+      el.style.width = '48px';
+      el.style.height = '48px';
       el.style.display = 'flex';
       el.style.alignItems = 'center';
       el.style.justifyContent = 'center';
 
       const marker = new mapboxgl.Marker(el)
-        .setLngLat([entity.lng, entity.lat])
+        .setLngLat([signal.lng!, signal.lat!])
         .setPopup(new mapboxgl.Popup().setHTML(`
           <div style="font-family: Inter, sans-serif; min-width: 160px;">
             <p style="font-weight: 700; margin-bottom: 4px;">
               🚨 DISTRESS SIGNAL
             </p>
             <p style="font-size: 12px; color: #555;">
-              Status: <b>${entity.status}</b>
+              Severity: <b>${signal.severity}/5</b> · Status: <b>${signal.status}</b>
             </p>
-            ${entity.userPhone ? `<p style="font-size: 12px; color: #555;">📞 ${entity.userPhone}</p>` : ''}
+            <p style="font-size: 12px; color: #555;">${signal.message}</p>
+            ${signal.userPhone ? `<p style="font-size: 12px; color: #555;">📞 ${signal.userPhone}</p>` : ''}
             <p style="font-size: 11px; color: #999; margin-top: 4px;">
-              ${entity.lat.toFixed(5)}, ${entity.lng.toFixed(5)}
+              ${signal.lat!.toFixed(5)}, ${signal.lng!.toFixed(5)}
             </p>
           </div>
         `))
@@ -175,7 +201,7 @@ const MapComponent = () => {
     return () => {
       markers.forEach(marker => marker.remove());
     };
-  }, [distressMarkers]);
+  }, [distressSignals]);
 
   // ── Add glowing circles for incidents ───────────────────────────────
   useEffect(() => {
