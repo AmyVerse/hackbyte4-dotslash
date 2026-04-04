@@ -7,8 +7,8 @@ import { processIncidentWithAI, formatIncidentDescription } from '../lib/ai';
 
 const IncidentReporter = () => {
   const [description, setDescription] = useState('');
-  const [userLat, setUserLat] = useState(40.7128);
-  const [userLng, setUserLng] = useState(-74.006);
+  const [userLat, setUserLat] = useState(23.1815);
+  const [userLng, setUserLng] = useState(79.9864);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);

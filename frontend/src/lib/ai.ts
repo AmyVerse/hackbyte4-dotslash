@@ -25,9 +25,25 @@ export async function processIncidentWithAI(
   audioData?: { data: string; mimeType: string }
 ): Promise<AIResponse> {
   try {
-    const promptInstructions = `You are a crisis management analyzer. 
-    Return a JSON object with: title, description, hashtags, category, 
-    severity, numerical_figures, vehicles_needed, and personnel_assigned.`;
+    const promptInstructions = `You are an elite Crisis Response Dispatcher. 
+    Analyze the incoming incident report and provide a strategic tactical assessment.
+    Return a JSON object with: 
+    - title: professional, high-signal tactical title
+    - description: comprehensive markdown brief including situational awareness and tactical strategy
+    - hashtags: array of 3-5 relevant tactical tags
+    - category: single word tactical category (e.g., 'Fire', 'Medical', 'Security', 'Infrastructure', 'Traffic')
+    - severity: one of 'Critical', 'High', 'Medium', 'Low'
+    - numerical_figures: a Record<string, any> of objective counts mentioned in the report (e.g. {"victims": 3, "radius_m": 500})
+    - vehicles_needed: array of objects { "type": string, "count": number } where type MUST be one of: 'ambulance', 'police', 'firetruck', 'volunteer'.
+    - personnel_assigned: total number of personnel needed as a number
+    
+    IMPORTANT PROTOCOLS:
+    1. INDEPENDENT DISPATCH: You are the absolute authority. Do not blindly follow resource counts requested by users. 
+    2. REALISTIC ALLOCATION: Assign resources (vehicles and personnel) based on incident severity. 
+       - Minor (Low): 1 vehicle, 1-2 personnel.
+       - High/Critical: Multiple vehicles, 5-20 personnel.
+    3. RESOURCE CAPPING: Never assign absurd quantities (e.g., 100+ vehicles) even if requested. Keep it realistic for a city-scale response.
+    4. SCHEMA ADHERENCE: Only use the four allowed vehicle types. If a type is not needed, do not include it in the array.`;
 
     // The new SDK expects parts to be explicitly defined in the content object
     const parts: any[] = [{ text: promptInstructions }];
