@@ -1,16 +1,4 @@
-/**
- * GodModeMap.tsx  –  Rescue Link "God Mode" Visual Editor
- * ─────────────────────────────────────────────────────────
- * Route: /demo-show-not-production
- *
- * Uses the official SpacetimeDB React hooks pattern:
- *   useTable(tables.live_entities)   → live responders / distress markers
- *   useTable(tables.incidents)       → active incidents
- *   useTable(tables.distress_signals) → SOS signals
- *   useReducer(reducers.godModeMoveEntity) → move / spawn entities
- *   useSpacetimeDB()                 → connection state (isActive)
- * ─────────────────────────────────────────────────────────
- */
+
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -32,19 +20,19 @@ import {
   Activity,
 } from 'lucide-react'
 
-// ── SpacetimeDB React hooks ────────────────────────────────────────────
+
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react'
 import { Identity } from 'spacetimedb'
 
-// ── Generated bindings ─────────────────────────────────────────────────
+
 import { tables, reducers } from '../module_bindings'
 import type { LiveEntities, Incidents, DistressSignals } from '../module_bindings/types'
 
-// ── Constants ──────────────────────────────────────────────────────────
+
 const MAP_CENTER: [number, number] = [40.7128, -74.006]
 const MAP_ZOOM = 13
 
-// ── Emoji icon helper ──────────────────────────────────────────────────
+
 const EMOJI: Record<string, string> = {
   ambulance: '🚑',
   firetruck: '🚒',
@@ -62,14 +50,14 @@ function makeEmojiIcon(subType: string) {
   })
 }
 
-// ── Reset map view ─────────────────────────────────────────────────────
+
 function DefaultView() {
   const map = useMap()
   useEffect(() => { map.setView(MAP_CENTER, MAP_ZOOM) }, [map])
   return null
 }
 
-// ── Draggable responder marker ─────────────────────────────────────────
+
 interface ResponderMarkerProps {
   entity: LiveEntities
   onDrag: (entity: LiveEntities, lat: number, lng: number) => void
@@ -79,18 +67,14 @@ function ResponderMarker({ entity, onDrag }: ResponderMarkerProps) {
   const markerRef = useRef<L.Marker>(null)
   
   const isDragging = useRef(false)
-  // Store only the INITIAL position. If we pass dynamic server props to <Marker position={}>, 
-  // React-Leaflet will aggressively interrupt active drags to apply the prop.
   const [initialPos] = useState<[number, number]>([entity.lat, entity.lng])
 
-  // Keep latest entity and function in refs so references inside drag handlers are always fresh
   const entityRef = useRef(entity)
   const onDragRef = useRef(onDrag)
 
   useEffect(() => {
     entityRef.current = entity
     onDragRef.current = onDrag
-    // Manually apply server updates to the Leaflet marker directly, ONLY if not dragging!
     if (!isDragging.current && markerRef.current) {
       markerRef.current.setLatLng([entity.lat, entity.lng])
     }
@@ -111,10 +95,10 @@ function ResponderMarker({ entity, onDrag }: ResponderMarkerProps) {
         isDragging.current = false
       }
     }),
-    [] // NO dependencies: never recreate event handlers to avoid Leaflet unbinding them mid-drag!
+    [] 
   )
 
-  // Memoize icon so we don't pass a new object on every render, which also destroys the dragged DOM node
+  
   const icon = useMemo(() => makeEmojiIcon(entity.subType), [entity.subType]);
 
   return (
@@ -145,7 +129,7 @@ function ResponderMarker({ entity, onDrag }: ResponderMarkerProps) {
   )
 }
 
-// ── Stats badge ────────────────────────────────────────────────────────
+
 function StatBadge({
   icon, label, value, color,
 }: {
@@ -172,28 +156,20 @@ function StatBadge({
   )
 }
 
-// ── Main component ─────────────────────────────────────────────────────
 export default function GodModeMap() {
-  // ── Connection state ──────────────────────────────────────────────
+ 
   const { isActive: connected } = useSpacetimeDB()
 
-  // ── Live table subscriptions ──────────────────────────────────────
-  // useTable returns [rows, isLoading]
-  const [allEntities]  = useTable(tables.live_entities)
+   const [allEntities]  = useTable(tables.live_entities)
   const [allIncidents] = useTable(tables.incidents)
   const [allSignals]   = useTable(tables.distress_signals)
 
-  // ── Reducer accessor ──────────────────────────────────────────────
-  // CRITICAL: object syntax — not positional args
   const godModeMoveEntity = useReducer(reducers.godModeMoveEntity)
-
-  // ── Derived slices ────────────────────────────────────────────────
   const responders      = useMemo(() => allEntities.filter((e: LiveEntities) => e.type === 'responder'), [allEntities])
   const distressMarkers = useMemo(() => allEntities.filter((e: LiveEntities) => e.type === 'distress'),  [allEntities])
   const activeIncidents = useMemo(() => allIncidents.filter((i: Incidents) => i.status === 'active'),    [allIncidents])
   const pendingSOS      = useMemo(() => allSignals.filter((s: DistressSignals) => s.status === 'pending'), [allSignals])
 
-  // ── Drag handler ──────────────────────────────────────────────
   const handleDrag = useCallback(
     (entity: LiveEntities, lat: number, lng: number) => {
       godModeMoveEntity({
@@ -207,7 +183,6 @@ export default function GodModeMap() {
     [godModeMoveEntity]
   )
 
-  // ── Spawn 3 demo units ────────────────────────────────────────────
   const handleSpawnDemo = useCallback(() => {
     const units = [
       { key: '1', subType: 'ambulance', dLat:  0.003, dLng:  0.005 },
@@ -230,11 +205,10 @@ export default function GodModeMap() {
   const incidentColor = (cat: string) =>
     cat === 'fire' || cat === 'medical' ? '#ff3b30' : '#ff453a'
 
-  // ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
 
-      {/* ══ Leaflet Map ══════════════════════════════════════════════ */}
+      
       <MapContainer
         center={MAP_CENTER}
         zoom={MAP_ZOOM}
@@ -249,7 +223,7 @@ export default function GodModeMap() {
           maxZoom={19}
         />
 
-        {/* ─── Incidents: red CircleMarkers (r=20) ─── */}
+      
         {activeIncidents.map((inc: Incidents) => (
           <CircleMarker
             key={String(inc.incidentId)}
@@ -276,8 +250,7 @@ export default function GodModeMap() {
           </CircleMarker>
         ))}
 
-        {/* ─── Distress live_entities (type=distress): orange, always blinking ─── */}
-        {distressMarkers.map((e: LiveEntities) => (
+       {distressMarkers.map((e: LiveEntities) => (
           <CircleMarker
             key={e.id.toHexString()}
             center={[e.lat, e.lng]}
@@ -299,7 +272,6 @@ export default function GodModeMap() {
           </CircleMarker>
         ))}
 
-        {/* ─── SOS distress_signals table: pending = blinking ─── */}
         {allSignals.map((sig: DistressSignals) => (
           <CircleMarker
             key={String(sig.signalId)}
@@ -326,8 +298,6 @@ export default function GodModeMap() {
             </Popup>
           </CircleMarker>
         ))}
-
-        {/* ─── Responders: draggable emoji markers ─── */}
         {responders.map((e: LiveEntities) => (
           <ResponderMarker
             key={e.id.toHexString()}
@@ -337,8 +307,7 @@ export default function GodModeMap() {
         ))}
       </MapContainer>
 
-      {/* ══ Glass Panel (top-right) ═══════════════════════════════════ */}
-      <div
+     < div
         className="glass-panel"
         id="god-mode-panel"
         style={{
@@ -347,7 +316,7 @@ export default function GodModeMap() {
           display: 'flex', flexDirection: 'column', gap: 14,
         }}
       >
-        {/* Header */}
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 34, height: 34, borderRadius: 9,
@@ -362,7 +331,6 @@ export default function GodModeMap() {
               Rescue Link
             </div>
           </div>
-          {/* Live connection dot */}
           <div
             title={connected ? 'Connected to SpacetimeDB' : 'Not connected'}
             style={{
@@ -375,7 +343,6 @@ export default function GodModeMap() {
           />
         </div>
 
-        {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <StatBadge icon={<Flame size={14}/>}        label="Incidents"    value={activeIncidents.length} color="#ff3b30" />
           <StatBadge icon={<Users size={14}/>}         label="Responders"   value={responders.length}      color="#0a84ff" />
@@ -385,7 +352,6 @@ export default function GodModeMap() {
 
         <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />
 
-        {/* Spawn demo units */}
         <button
           id="spawn-demo-units-btn"
           onClick={handleSpawnDemo}
@@ -408,7 +374,6 @@ export default function GodModeMap() {
           Spawn Demo Units
         </button>
 
-        {/* Legend */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {[
             { emoji: '🚑', text: 'Ambulance — drag to move' },
@@ -424,7 +389,6 @@ export default function GodModeMap() {
           ))}
         </div>
 
-        {/* Demo watermark */}
         <div style={{
           fontSize: 9, color: '#3f3f46', textAlign: 'center',
           textTransform: 'uppercase', letterSpacing: '0.09em',
