@@ -232,11 +232,11 @@ export const create_incident = spacetimedb.reducer(
     },
     (ctx, { category, description, lat, lng }) => {
        
-        const user = ctx.db.users.identity.find(ctx.sender);
+        // const user = ctx.db.users.identity.find(ctx.sender);
         
-        if (!user) {
-            throw new SenderError("Unauthorized: ");
-        }   
+        // if (!user) {
+        //     throw new SenderError("Unauthorized: ");
+        // }   
 
         const currentTime = BigInt(Date.now());
 
@@ -255,9 +255,10 @@ export const create_incident = spacetimedb.reducer(
             eventId: 0n, 
             incidentId: newIncident.incidentId,
             eventType: "INCIDENT_CREATED",
-            message: `Incident created by ${user.name || user.phone}`,
+            message: `Incident created by `,   // ${user.name || user.phone}`,
             timestamp: currentTime
         });
+
     }
 );  
 
