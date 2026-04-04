@@ -12,7 +12,7 @@
  * ─────────────────────────────────────────────────────────
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapContainer,
   TileLayer,
@@ -72,29 +72,56 @@ function DefaultView() {
 // ── Draggable responder marker ─────────────────────────────────────────
 interface ResponderMarkerProps {
   entity: LiveEntities
-  onDragEnd: (entity: LiveEntities, lat: number, lng: number) => void
+  onDrag: (entity: LiveEntities, lat: number, lng: number) => void
 }
 
-function ResponderMarker({ entity, onDragEnd }: ResponderMarkerProps) {
+function ResponderMarker({ entity, onDrag }: ResponderMarkerProps) {
   const markerRef = useRef<L.Marker>(null)
+  
+  const isDragging = useRef(false)
+  // Store only the INITIAL position. If we pass dynamic server props to <Marker position={}>, 
+  // React-Leaflet will aggressively interrupt active drags to apply the prop.
+  const [initialPos] = useState<[number, number]>([entity.lat, entity.lng])
+
+  // Keep latest entity and function in refs so references inside drag handlers are always fresh
+  const entityRef = useRef(entity)
+  const onDragRef = useRef(onDrag)
+
+  useEffect(() => {
+    entityRef.current = entity
+    onDragRef.current = onDrag
+    // Manually apply server updates to the Leaflet marker directly, ONLY if not dragging!
+    if (!isDragging.current && markerRef.current) {
+      markerRef.current.setLatLng([entity.lat, entity.lng])
+    }
+  }, [entity.lat, entity.lng, entity, onDrag])
 
   const handlers = useMemo<LeafletEventHandlerFnMap>(
     () => ({
-      dragend() {
+      dragstart() {
+        isDragging.current = true
+      },
+      drag() {
         const m = markerRef.current
         if (!m) return
         const p = m.getLatLng()
-        onDragEnd(entity, p.lat, p.lng)
+        onDragRef.current(entityRef.current, p.lat, p.lng)
       },
+      dragend() {
+        isDragging.current = false
+      }
     }),
-    [entity, onDragEnd]
+    [] // NO dependencies: never recreate event handlers to avoid Leaflet unbinding them mid-drag!
   )
+
+  // Memoize icon so we don't pass a new object on every render, which also destroys the dragged DOM node
+  const icon = useMemo(() => makeEmojiIcon(entity.subType), [entity.subType]);
 
   return (
     <Marker
       ref={markerRef}
-      position={[entity.lat, entity.lng]}
-      icon={makeEmojiIcon(entity.subType)}
+      position={initialPos}
+      icon={icon}
       draggable
       eventHandlers={handlers}
     >
@@ -166,8 +193,8 @@ export default function GodModeMap() {
   const activeIncidents = useMemo(() => allIncidents.filter((i: Incidents) => i.status === 'active'),    [allIncidents])
   const pendingSOS      = useMemo(() => allSignals.filter((s: DistressSignals) => s.status === 'pending'), [allSignals])
 
-  // ── Drag-end handler ──────────────────────────────────────────────
-  const handleDragEnd = useCallback(
+  // ── Drag handler ──────────────────────────────────────────────
+  const handleDrag = useCallback(
     (entity: LiveEntities, lat: number, lng: number) => {
       godModeMoveEntity({
         targetId: entity.id,
@@ -305,7 +332,7 @@ export default function GodModeMap() {
           <ResponderMarker
             key={e.id.toHexString()}
             entity={e}
-            onDragEnd={handleDragEnd}
+            onDrag={handleDrag}
           />
         ))}
       </MapContainer>
