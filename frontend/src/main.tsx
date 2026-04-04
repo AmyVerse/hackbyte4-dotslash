@@ -38,7 +38,7 @@ function Root() {
     </SpacetimeDBProvider>
   )
 }
-
+// fsdfsd
 createRoot(document.getElementById('root')!).render(
   <Root />
 )
