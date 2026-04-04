@@ -69,7 +69,7 @@ const MapComponent = () => {
 
     const initialCenter: [number, number] = (paramLat && paramLng)
       ? [parseFloat(paramLng), parseFloat(paramLat)]
-      : lastKnownLocation || [77.2090, 28.6139];
+      : lastKnownLocation || [79.9864, 23.1815];
 
     const initialZoom = (paramLat && paramLng) ? 16 : (lastKnownLocation ? 16 : 12);
 
@@ -212,13 +212,16 @@ const MapComponent = () => {
 
     activeIncidents.forEach((incident: Incidents) => {
       const el = document.createElement('div');
-      el.style.width = '40px';
-      el.style.height = '40px';
-      el.style.borderRadius = '50%';
-      el.style.backgroundColor = '#ff3b30';
-      el.style.opacity = '0.7';
-      el.style.border = '2px solid #ff453a';
-      el.style.boxShadow = '0 0 10px rgba(255, 59, 48, 0.8)';
+      el.innerHTML = `
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" fill="#ff3b30" stroke="#fff" stroke-width="2"/>
+          <circle cx="12" cy="10" r="3" fill="#fff"/>
+        </svg>
+      `;
+      el.style.width = '32px';
+      el.style.height = '32px';
+      el.style.cursor = 'pointer';
+      el.style.filter = 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))';
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat([incident.lng, incident.lat])

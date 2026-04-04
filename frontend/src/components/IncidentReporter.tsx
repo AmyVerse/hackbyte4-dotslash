@@ -14,8 +14,13 @@ interface IncidentReporterProps {
 
 const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: IncidentReporterProps = {}) => {
   const [description, setDescription] = useState('');
+<<<<<<< HEAD
   const [userLat, setUserLat] = useState(forcedLat ?? 40.7128);
   const [userLng, setUserLng] = useState(forcedLng ?? -74.006);
+=======
+  const [userLat, setUserLat] = useState(23.1815);
+  const [userLng, setUserLng] = useState(79.9864);
+>>>>>>> a1f5a417a1d3078605e0444d361a12cd49c1f900
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
