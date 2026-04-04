@@ -177,9 +177,11 @@ export const link_user = spacetimedb.reducer(
 export const report_distress = spacetimedb.reducer(
     {
         severity: t.u32(),
-        message: t.string()
+        message: t.string(),
+        lat: t.f64(),
+        lng: t.f64()
     },
-    (ctx, { severity, message }) => {
+    (ctx, { severity, message, lat, lng }) => {
         
         if (severity < 1 || severity > 5) {
             throw new SenderError("Severity must be between 1 and 5.");
@@ -187,6 +189,8 @@ export const report_distress = spacetimedb.reducer(
         if (!message || message.trim() === "") {
             throw new SenderError("Distress message cannot be empty.");
         }
+        if (lat < -90.0 || lat > 90.0) throw new SenderError("Invalid latitude.");
+        if (lng < -180.0 || lng > 180.0) throw new SenderError("Invalid longitude.");
 
         const currentTime = BigInt(Date.now());
 
@@ -215,6 +219,20 @@ export const report_distress = spacetimedb.reducer(
                 ...existingMarker,
                 type: "distress",
                 status: "active",
+                lat,
+                lng,
+                lastSeen: currentTime
+            });
+        } else {
+            // Create a new live entity for the distress signal
+            ctx.db.live_entities.insert({
+                id: ctx.sender,
+                userPhone: phone,
+                type: "distress",
+                subType: "emergency",
+                status: "active",
+                lat,
+                lng,
                 lastSeen: currentTime
             });
         }
