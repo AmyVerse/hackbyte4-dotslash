@@ -5,10 +5,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { reducers } from '../module_bindings';
 import { processIncidentWithAI, formatIncidentDescription } from '../lib/ai';
 
-const IncidentReporter = () => {
+interface IncidentReporterProps {
+  forcedLat?: number;
+  forcedLng?: number;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: IncidentReporterProps = {}) => {
   const [description, setDescription] = useState('');
-  const [userLat, setUserLat] = useState(40.7128);
-  const [userLng, setUserLng] = useState(-74.006);
+  const [userLat, setUserLat] = useState(forcedLat ?? 40.7128);
+  const [userLng, setUserLng] = useState(forcedLng ?? -74.006);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -30,6 +37,11 @@ const IncidentReporter = () => {
   }, [isRecording, isPaused]);
 
   useEffect(() => {
+    if (forcedLat !== undefined && forcedLng !== undefined) {
+      setUserLat(forcedLat);
+      setUserLng(forcedLng);
+      return;
+    }
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -41,7 +53,7 @@ const IncidentReporter = () => {
         }
       );
     }
-  }, []);
+  }, [forcedLat, forcedLng]);
 
   const handleSubmit = async (overrideDescription?: string, audioBlob?: Blob) => {
     const input = overrideDescription || description;
@@ -85,8 +97,12 @@ const IncidentReporter = () => {
       setIsRecording(false);
       setRecordingSeconds(0);
 
-      // Go to upload page
-      navigate('/upload');
+      // Go to upload page or fire onSuccess
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/upload');
+      }
     } catch (error) {
       console.error('Failed to report incident:', error);
     } finally {
@@ -137,7 +153,15 @@ const IncidentReporter = () => {
   };
 
   return (
-    <div className="w-full flex flex-col gap-2">
+    <div className="w-full flex flex-col gap-2 relative">
+      {onCancel && (
+        <button
+          onClick={onCancel}
+          className="absolute -top-8 right-0 text-white/50 hover:text-white font-bold text-xs uppercase"
+        >
+          Cancel
+        </button>
+      )}
       <div className="bg-white p-1 md:p-2 flex items-center gap-2 border border-espresso/20 rounded-sm relative shadow-sm">
         <AnimatePresence mode="wait">
           {!isRecording ? (

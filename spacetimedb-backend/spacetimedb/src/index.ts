@@ -458,7 +458,25 @@ export const god_mode_move_entity = spacetimedb.reducer(
     }
 );
 
+export const god_mode_delete_incident = spacetimedb.reducer(
+    { incidentId: t.u64() },
+    (ctx, { incidentId }) => {
+        const incident = ctx.db.incidents.incidentId.find(incidentId);
+        if (incident) {
+            ctx.db.incidents.incidentId.delete(incidentId);
+        }
+    }
+);
 
+export const god_mode_delete_entity = spacetimedb.reducer(
+    { entityId: t.identity() },
+    (ctx, { entityId }) => {
+        const entity = ctx.db.live_entities.id.find(entityId);
+        if (entity) {
+            ctx.db.live_entities.id.delete(entityId);
+        }
+    }
+);
 
 export const seed_demo_data = spacetimedb.reducer(
     {},

@@ -36,6 +36,8 @@ import {
 // Import all reducer arg schemas
 import AcceptDispatchReducer from "./accept_dispatch_reducer";
 import CreateIncidentReducer from "./create_incident_reducer";
+import GodModeDeleteEntityReducer from "./god_mode_delete_entity_reducer";
+import GodModeDeleteIncidentReducer from "./god_mode_delete_incident_reducer";
 import GodModeMoveEntityReducer from "./god_mode_move_entity_reducer";
 import LinkUserReducer from "./link_user_reducer";
 import RejectDispatchReducer from "./reject_dispatch_reducer";
@@ -146,6 +148,8 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("accept_dispatch", AcceptDispatchReducer),
   __reducerSchema("create_incident", CreateIncidentReducer),
+  __reducerSchema("god_mode_delete_entity", GodModeDeleteEntityReducer),
+  __reducerSchema("god_mode_delete_incident", GodModeDeleteIncidentReducer),
   __reducerSchema("god_mode_move_entity", GodModeMoveEntityReducer),
   __reducerSchema("link_user", LinkUserReducer),
   __reducerSchema("reject_dispatch", RejectDispatchReducer),

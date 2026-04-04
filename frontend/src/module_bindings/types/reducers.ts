@@ -8,6 +8,8 @@ import { type Infer as __Infer } from "spacetimedb";
 // Import all reducer arg schemas
 import AcceptDispatchReducer from "../accept_dispatch_reducer";
 import CreateIncidentReducer from "../create_incident_reducer";
+import GodModeDeleteEntityReducer from "../god_mode_delete_entity_reducer";
+import GodModeDeleteIncidentReducer from "../god_mode_delete_incident_reducer";
 import GodModeMoveEntityReducer from "../god_mode_move_entity_reducer";
 import LinkUserReducer from "../link_user_reducer";
 import RejectDispatchReducer from "../reject_dispatch_reducer";
@@ -18,6 +20,8 @@ import UpdateLocationReducer from "../update_location_reducer";
 
 export type AcceptDispatchParams = __Infer<typeof AcceptDispatchReducer>;
 export type CreateIncidentParams = __Infer<typeof CreateIncidentReducer>;
+export type GodModeDeleteEntityParams = __Infer<typeof GodModeDeleteEntityReducer>;
+export type GodModeDeleteIncidentParams = __Infer<typeof GodModeDeleteIncidentReducer>;
 export type GodModeMoveEntityParams = __Infer<typeof GodModeMoveEntityReducer>;
 export type LinkUserParams = __Infer<typeof LinkUserReducer>;
 export type RejectDispatchParams = __Infer<typeof RejectDispatchReducer>;

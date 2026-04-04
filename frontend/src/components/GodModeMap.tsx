@@ -42,7 +42,7 @@ import { tables, reducers } from '../module_bindings'
 import type { LiveEntities, Incidents, DistressSignals } from '../module_bindings/types'
 
 // ── Constants ──────────────────────────────────────────────────────────
-const MAP_CENTER: [number, number] = [40.7128, -74.006]
+const MAP_CENTER: [number, number] = [23.176, 80.024]
 const MAP_ZOOM = 13
 
 // ── Emoji icon helper ──────────────────────────────────────────────────
