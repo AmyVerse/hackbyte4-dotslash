@@ -3,12 +3,6 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react'
 import { tables, reducers } from '../module_bindings'
-import type { Incidents } from '../module_bindings/types'
-
-const formatTime = (timestamp: bigint | number) => {
-  const date = new Date(Number(timestamp))
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
 
 const Feed = () => {
   const { isActive: connected } = useSpacetimeDB()
