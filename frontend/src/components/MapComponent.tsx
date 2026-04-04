@@ -15,8 +15,8 @@ let lastKnownLocation: [number, number] | null = null;
 const EMOJI: Record<string, string> = {
   ambulance: '🚑',
   firetruck: '🚒',
-  police:    '🚔',
-  default:   '🚨',
+  police: '🚔',
+  default: '🚨',
 };
 
 const MapComponent = () => {
@@ -66,10 +66,10 @@ const MapComponent = () => {
   useEffect(() => {
     if (mapInstance.current || !mapContainer.current) return;
 
-    const initialCenter: [number, number] = (paramLat && paramLng) 
-      ? [parseFloat(paramLng), parseFloat(paramLat)] 
+    const initialCenter: [number, number] = (paramLat && paramLng)
+      ? [parseFloat(paramLng), parseFloat(paramLat)]
       : lastKnownLocation || [77.2090, 28.6139];
-    
+
     const initialZoom = (paramLat && paramLng) ? 16 : (lastKnownLocation ? 16 : 12);
 
     mapInstance.current = new mapboxgl.Map({
@@ -253,10 +253,10 @@ const MapComponent = () => {
       <AnimatePresence>
         {isLocating && (
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="fixed bottom-10 right-10 bg-white p-5 pr-8 border-l-8 border-espresso border-y border-r shadow-2xl flex items-center gap-4 z-5000"
+            exit={{ opacity: 0, x: -20 }}
+            className="fixed top-24 left-10 bg-white p-5 pr-8 border-l-8 border-espresso border-y border-r shadow-2xl flex items-center gap-4 z-5000"
           >
             <div className="w-3 h-3 bg-terracotta rounded-full animate-pulse" />
             <span className="text-[14px] font-black text-espresso tracking-widest uppercase">Locating you...</span>
