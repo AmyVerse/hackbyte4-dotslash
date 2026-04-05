@@ -8,8 +8,8 @@ import IncidentDetails from './pages/IncidentDetails';
 import GodModeContainer from './components/god-mode/GodModeContainer';
 import Upload from './pages/Upload';
 import Success from './pages/Success';
-import SOSButton from './components/SOSButton';
 import AdminDashboard from './pages/AdminDashboard';
+import SOSButton from './components/SOSButton';
 
 const Navigation = () => {
   const location = useLocation();
@@ -74,7 +74,9 @@ const AppContent = () => {
   return (
     <div className="w-screen h-screen">
       <Navigation />
-      <SOSButton />
+      <div className="hidden md:block">
+        <SOSButton isFixed={true} />
+      </div>
       <main className="relative w-full h-full pt-[80px] md:pt-[100px] z-50">
         <div className={`fixed inset-0 z-10 transition-opacity duration-300 ${isMapRoute ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           <MapComponent />

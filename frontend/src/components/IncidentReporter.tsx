@@ -4,6 +4,7 @@ import { useReducer } from 'spacetimedb/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { reducers } from '../module_bindings';
 import { processIncidentWithAI, formatIncidentDescription } from '../lib/ai';
+import SOSButton from './SOSButton';
 
 interface IncidentReporterProps {
   forcedLat?: number;
@@ -84,17 +85,16 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
         lng: userLng,
       });
 
-      /*  if (aiResponse.severity.toLowerCase() === 'critical' || aiResponse.severity.toLowerCase() === 'high') {
-         try {
-           fetch('https://rescue-api.amyverse.in/broadcast');
-         } catch (e) { }
-       } */
+      if (aiResponse.severity.toLowerCase() === 'critical' || aiResponse.severity.toLowerCase() === 'high') {
+        try {
+          fetch('https://rescue-api.amyverse.in/broadcast');
+        } catch (e) { }
+      }
 
       setDescription('');
       setIsRecording(false);
       setRecordingSeconds(0);
 
-      // Go to upload page or fire onSuccess
       if (onSuccess) {
         onSuccess();
       } else {
@@ -151,14 +151,22 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
 
   return (
     <div className="w-full flex flex-col gap-2 relative">
-      {onCancel && (
-        <button
-          onClick={onCancel}
-          className="absolute -top-8 right-0 text-white/50 hover:text-white font-bold text-xs uppercase"
-        >
-          Cancel
-        </button>
-      )}
+      <div className="flex justify-between items-end mb-1">
+        <div>
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="text-white/50 hover:text-white font-bold text-[10px] md:text-[11px] uppercase tracking-widest cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+        <div className="w-20 md:w-24 h-10 md:h-12 md:hidden">
+          <SOSButton isFixed={false} className="border-2" />
+        </div>
+      </div>
+
       <div className="bg-white p-1 md:p-2 flex items-center gap-2 border border-espresso/20 rounded-sm relative shadow-sm">
         <AnimatePresence mode="wait">
           {!isRecording ? (
@@ -174,7 +182,6 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
                 value={description}
                 onChange={(e) => {
                   setDescription(e.target.value);
-                  // Auto-expand logic
                   e.target.style.height = 'auto';
                   e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
