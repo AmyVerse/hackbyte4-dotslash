@@ -47,9 +47,6 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
         (position) => {
           setUserLat(position.coords.latitude);
           setUserLng(position.coords.longitude);
-        },
-        (error) => {
-          console.log('Geolocation error:', error);
         }
       );
     }

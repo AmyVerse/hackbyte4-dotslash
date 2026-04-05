@@ -3,6 +3,7 @@ import { useTable } from 'spacetimedb/react';
 import { motion } from 'framer-motion';
 import MarkdownContent from '../components/MarkdownContent';
 import { tables } from '../module_bindings';
+import { parseAIContent } from '../lib/parser';
 
 const IncidentDetails = () => {
   const { incidentId } = useParams();
@@ -29,6 +30,8 @@ const IncidentDetails = () => {
     );
   }
 
+  const { title, hashtags, cleanBody, severity, tacticalData, vehicles, personnel } = parseAIContent(incident.description);
+
   return (
     <div className="py-6 md:pt-10 pb-96 max-w-7xl mx-auto w-full px-4 md:px-10">
       <div className="flex items-center gap-4 mb-8 md:mb-12">
@@ -40,8 +43,8 @@ const IncidentDetails = () => {
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 className="text-2xl md:text-4xl font-black tracking-tight text-espresso uppercase">
-          Incident #{incidentId}
+        <h1 className="text-2xl md:text-3xl font-black tracking-tight text-espresso uppercase">
+          Tactical Briefing: {title}
         </h1>
       </div>
 
@@ -57,19 +60,54 @@ const IncidentDetails = () => {
               <span className="text-[11px] font-black text-espresso/40 tracking-[0.3em] uppercase">
                 Category: <span className="text-espresso tracking-normal">{incident.category}</span>
               </span>
+              {severity && (
+                <span className="text-[11px] font-black bg-terracotta/10 text-terracotta px-3 py-1 rounded-xs border border-terracotta/20 uppercase tracking-[0.2em]">
+                  {severity}
+                </span>
+              )}
             </div>
             
-            <h2 className="text-2xl md:text-3xl font-black text-espresso mb-6 leading-tight tracking-tight">
-              Tactical Briefing
-            </h2>
-            <div className="text-lg md:text-xl font-medium text-espresso/80 leading-relaxed tracking-normal">
-              <MarkdownContent content={incident.description} />
+            <div className="text-lg md:text-xl font-medium text-espresso/80 leading-relaxed tracking-normal mb-10">
+              <MarkdownContent content={cleanBody} />
+            </div>
+
+            {/* Strategic Assets Grid */}
+            {(vehicles.length > 0 || tacticalData.length > 0 || personnel) && (
+              <div className="border-t border-espresso/10 pt-8 mt-8">
+                <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-espresso/40 mb-6">Dispatch & Resource Allocation</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {personnel && (
+                    <div className="bg-espresso/5 border border-espresso/10 rounded-sm p-4">
+                      <h4 className="text-[10px] font-black text-espresso/30 uppercase tracking-[0.2em] mb-1">Personnel</h4>
+                      <p className="text-lg font-bold text-espresso">{personnel} Units Assigned</p>
+                    </div>
+                  )}
+                  {vehicles.map((v, idx) => (
+                    <div key={idx} className="bg-espresso/5 border border-espresso/10 rounded-sm p-4 capitalize">
+                      <h4 className="text-[10px] font-black text-espresso/30 uppercase tracking-[0.2em] mb-1">{v.type}s</h4>
+                      <p className="text-lg font-bold text-espresso">{v.count} Dispatched</p>
+                    </div>
+                  ))}
+                  {tacticalData.map((d, idx) => (
+                    <div key={idx} className="bg-espresso/5 border border-espresso/10 rounded-sm p-4">
+                      <h4 className="text-[10px] font-black text-espresso/30 uppercase tracking-[0.2em] mb-1">{d.label}</h4>
+                      <p className="text-lg font-bold text-espresso">{d.val}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-3 mt-10">
+              {hashtags.map(tag => (
+                <span key={tag} className="text-[10px] font-black text-espresso/30 uppercase tracking-widest">{tag}</span>
+              ))}
             </div>
           </div>
 
           <div className="space-y-4">
             <h3 className="text-[12px] font-black uppercase tracking-[0.3em] text-espresso/40 px-2">Timeline Updates</h3>
-            {relatedEvents.map((event, idx) => (
+            {relatedEvents.length > 0 ? relatedEvents.map((event, idx) => (
               <motion.div
                 key={Number(event.eventId)}
                 initial={{ opacity: 0, x: -10 }}
@@ -89,7 +127,11 @@ const IncidentDetails = () => {
                   {event.eventType}
                 </span>
               </motion.div>
-            ))}
+            )) : (
+              <div className="p-10 text-center border border-dashed border-espresso/10 rounded-sm text-espresso/30 text-sm italic">
+                No tactical updates recorded yet.
+              </div>
+            )}
           </div>
         </div>
 

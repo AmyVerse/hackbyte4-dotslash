@@ -29,21 +29,19 @@ export async function processIncidentWithAI(
     Analyze the incoming incident report and provide a strategic tactical assessment.
     Return a JSON object with: 
     - title: professional, high-signal tactical title
-    - description: comprehensive markdown brief including situational awareness and tactical strategy
+    - description: concise markdown brief focusing on factual extraction (victim status, immediate danger, known details). Avoid long-winded tactical theory or "prevention" advice. Keep it high-signal and brief.
     - hashtags: array of 3-5 relevant tactical tags
     - category: single word tactical category (e.g., 'Fire', 'Medical', 'Security', 'Infrastructure', 'Traffic')
     - severity: one of 'Critical', 'High', 'Medium', 'Low'
-    - numerical_figures: a Record<string, any> of objective counts mentioned in the report (e.g. {"victims": 3, "radius_m": 500})
+    - numerical_figures: a Record<string, any> of objective counts mentioned in the report (e.g. {"victims": 3, "perpetrators": 1})
     - vehicles_needed: array of objects { "type": string, "count": number } where type MUST be one of: 'ambulance', 'police', 'firetruck', 'volunteer'.
     - personnel_assigned: total number of personnel needed as a number
     
     IMPORTANT PROTOCOLS:
-    1. INDEPENDENT DISPATCH: You are the absolute authority. Do not blindly follow resource counts requested by users. 
-    2. REALISTIC ALLOCATION: Assign resources (vehicles and personnel) based on incident severity. 
-       - Minor (Low): 1 vehicle, 1-2 personnel.
-       - High/Critical: Multiple vehicles, 5-20 personnel.
-    3. RESOURCE CAPPING: Never assign absurd quantities (e.g., 100+ vehicles) even if requested. Keep it realistic for a city-scale response.
-    4. SCHEMA ADHERENCE: Only use the four allowed vehicle types. If a type is not needed, do not include it in the array.`;
+    1. CONCISE REPORTING: Extract facts (status, danger, counts) only. Avoid generic recommendations or "prevention" advice. No long paragraphs.
+    2. INDEPENDENT DISPATCH: You are the authority. Do not blindly follow requested counts.
+    3. REALISTIC ALLOCATION & CAPPING: Assign believable amounts of resources. Never exceed 20 units total for any category.
+    4. SCHEMA ADHERENCE: Only use: 'ambulance', 'police', 'firetruck', 'volunteer'.`;
 
     // The new SDK expects parts to be explicitly defined in the content object
     const parts: any[] = [{ text: promptInstructions }];
@@ -73,10 +71,8 @@ export async function processIncidentWithAI(
     if (!response.text) {
       throw new Error("Empty response from AI");
     }
-    console.log("AI Log [processIncidentWithAI]:", response.text);
     return JSON.parse(response.text) as AIResponse;
   } catch (error) {
-    console.error("AI processing failed:", error);
     return {
       title: "Incident Reported",
       description: textInput || "Audio transcription unavailable",
@@ -112,7 +108,6 @@ export async function verifyCrisisImage(imageDataBase64: string, mimeType: strin
     });
 
     if (!response.text) return { isCrisis: false, type: "none", confidence: 0, explanation: "No response text" };
-    console.log("AI Log [verifyCrisisImage]:", response.text);
     return JSON.parse(response.text);
   } catch (error) {
     return { isCrisis: false, type: "none", confidence: 0, explanation: "Verification error" };
@@ -128,7 +123,6 @@ export async function chatWithAI(message: string): Promise<string> {
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: message }] }]
     });
-    console.log("AI Log [chatWithAI]:", response.text);
     return response.text || "No response received.";
   } catch (error) {
     return "I'm sorry, I'm unable to process your request.";
@@ -142,6 +136,14 @@ export function formatIncidentDescription(data: AIResponse): string {
   let output = `### ${data.title}\n\n${data.description}\n\n`;
   output += `**Severity:** ${data.severity}\n`;
   output += `**Tags:** ${data.hashtags.join(', ')}\n\n`;
+
+  if (Object.keys(data.numerical_figures).length > 0) {
+    output += `**Tactical Data:**\n`;
+    Object.entries(data.numerical_figures).forEach(([key, val]) => {
+      output += `- ${key.replace(/_/g, ' ')}: ${val}\n`;
+    });
+    output += `\n`;
+  }
 
   if (data.vehicles_needed.length > 0) {
     output += `**Vehicles Needed:**\n`;

@@ -5,50 +5,7 @@ import { useSpacetimeDB, useTable } from 'spacetimedb/react'
 import IncidentReporter from '../components/IncidentReporter'
 import MarkdownContent from '../components/MarkdownContent'
 import { tables } from '../module_bindings'
-
-const parseAIContent = (content: string = "") => {
-  const lines = content.split('\n').filter(l => l.trim() !== "");
-
-  // Try to find a line starting with ### for the title
-  let titleIndex = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('### ')) {
-      titleIndex = i;
-      break;
-    }
-  }
-
-  // Determine Title and Body
-  let title = "Tactical Alert";
-  let cleanBodyLines = lines;
-
-  if (titleIndex !== -1) {
-    // We have an explicit Markdown title
-    title = lines[titleIndex].replace('### ', '').trim();
-    cleanBodyLines = lines.filter((_, i) => i !== titleIndex);
-  } else if (lines.length > 1) {
-    // More than one line and no explicit title, use first as title
-    title = lines[0].replace(/[*#]/g, '').trim();
-    cleanBodyLines = lines.slice(1);
-  } else {
-    // Only one line, use it as body, title stays default
-    title = "Tactical Alert";
-    cleanBodyLines = lines;
-  }
-
-  // Extract Hashtags and Severity
-  const hashtags = content.match(/#[a-zA-Z0-9]+/g) || [];
-  const severityMatch = content.match(/\*\*Severity\*\*:\s*([^\n\r]+)/i);
-  const severity = severityMatch ? severityMatch[1].trim() : null;
-
-  const cleanBody = cleanBodyLines
-    .join('\n')
-    .replace(/\*\*Severity\*\*:\s*.+/i, '')
-    .replace(/#[a-zA-Z0-9]+ ?/g, '')
-    .trim();
-
-  return { title, hashtags, cleanBody, severity };
-}
+import { parseAIContent } from '../lib/parser'
 
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371; // km
@@ -96,9 +53,8 @@ const Feed = () => {
     return incidentItems.sort((a, b) => a.sortKey - b.sortKey)
   }, [incidents])
 
-
   return (
-    <div className="py-6 md:py-7 mx-auto w-full">
+    <div className="py-6 pb-40 md:py-7 mx-auto w-full">
       <div className="sticky top-0 z-40 bg-[#fbf9f4] pt-3 pb-3 border-b border-espresso/20 mb-6 md:mb-8 px-2">
         <div className="flex flex-row justify-between items-center gap-2">
           <div className="min-w-0">
@@ -125,8 +81,7 @@ const Feed = () => {
             </div>
           ) : (
             feedItems.map((item, index) => {
-              console.log('Rendering feed item:', item.description)
-              const { title, hashtags, cleanBody, severity } = parseAIContent(item.description);
+              const { title, hashtags, cleanBody, severity, tacticalData, vehicles, personnel } = parseAIContent(item.description);
               const isExpanded = expandedDescriptions[item.id] || false;
               const displayBody = cleanBody || item.description;
               const displayTitle = title || "Tactical Alert";
@@ -204,6 +159,30 @@ const Feed = () => {
                             <span key={tag} className="text-[9px] md:text-[10px] font-black text-espresso/40 uppercase tracking-widest">{tag}</span>
                           ))}
                         </div>
+
+                        {/* Strategic Assets */}
+                        {(vehicles.length > 0 || tacticalData.length > 0 || personnel) && (
+                          <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {personnel && (
+                              <div className="bg-espresso/5 border border-espresso/10 rounded-xs p-3">
+                                <h4 className="text-[8px] font-black text-espresso/30 uppercase tracking-widest mb-1">Personnel</h4>
+                                <p className="text-sm font-bold text-espresso">{personnel} Units Assigned</p>
+                              </div>
+                            )}
+                            {vehicles.map((v, idx) => (
+                              <div key={idx} className="bg-espresso/5 border border-espresso/10 rounded-xs p-3 capitalize">
+                                <h4 className="text-[8px] font-black text-espresso/30 uppercase tracking-widest mb-1">{v.type}s</h4>
+                                <p className="text-sm font-bold text-espresso">{v.count} Dispatched</p>
+                              </div>
+                            ))}
+                            {tacticalData.map((d, idx) => (
+                              <div key={idx} className="bg-espresso/5 border border-espresso/10 rounded-xs p-3">
+                                <h4 className="text-[8px] font-black text-espresso/30 uppercase tracking-widest mb-1">{d.label}</h4>
+                                <p className="text-sm font-bold text-espresso truncate">{d.val}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="mt-8 pt-6 border-t border-espresso/5 flex flex-wrap gap-4">

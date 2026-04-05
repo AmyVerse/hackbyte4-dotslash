@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,8 +30,9 @@ const MapComponent = () => {
   const paramLng = searchParams.get('lng');
 
   const [isLocating, setIsLocating] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState<bigint | null>(null);
-
+  const [selectedEntity, setSelectedEntity] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number } | null>(null);
   // ── SpacetimeDB data ────────────────────────────────────────────
   const [allEntities] = useTable(tables.live_entities);
   const [allIncidents] = useTable(tables.incidents);
@@ -66,6 +67,93 @@ const MapComponent = () => {
   }, [allSignals, allIncidents, allEntities]);
   const activeIncidents = useMemo(() => allIncidents.filter((i: Incidents) => i.status === 'active'), [allIncidents]);
 
+  // ── Find nearest incident utility ──────────────────────────────────
+  const getNearestIncident = (lat: number, lng: number) => {
+    if (activeIncidents.length === 0) return null;
+    let nearest = activeIncidents[0];
+    let minD = Infinity;
+    activeIncidents.forEach(inc => {
+      const d = Math.sqrt(Math.pow(inc.lat - lat, 2) + Math.pow(inc.lng - lng, 2));
+      if (d < minD) {
+        minD = d;
+        nearest = inc;
+      }
+    });
+    return nearest;
+  };
+
+  // ── Fetch route from Mapbox ────────────────────────────────────────
+  const fetchRoute = async (start: [number, number], end: [number, number]) => {
+    try {
+      const query = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${start[0]},${start[1]};${end[0]},${end[1]}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
+        { method: 'GET' }
+      );
+      const json = await query.json();
+      if (json.code !== 'Ok') return null;
+      const data = json.routes[0];
+      const route = data.geometry.coordinates;
+      const geojson: any = {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: route
+        }
+      };
+
+      if (mapInstance.current) {
+        if (mapInstance.current.getSource('route')) {
+          (mapInstance.current.getSource('route') as mapboxgl.GeoJSONSource).setData(geojson);
+        } else {
+          mapInstance.current.addSource('route', {
+            type: 'geojson',
+            data: geojson
+          });
+          mapInstance.current.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#ff3b30',
+              'line-width': 5,
+              'line-opacity': 0.75
+            }
+          });
+        }
+      }
+      return { distance: data.distance, duration: data.duration };
+    } catch (err) {
+      console.error('Routing failed:', err);
+      return null;
+    }
+  };
+
+  // ── Effect: Handle routing ──────────────────
+  useEffect(() => {
+    if (selectedEntity && (selectedEntity.type === 'responder' || selectedEntity.type === 'distress')) {
+      const nearest = getNearestIncident(selectedEntity.lat, selectedEntity.lng);
+      if (nearest) {
+        fetchRoute([selectedEntity.lng, selectedEntity.lat], [nearest.lng, nearest.lat])
+          .then(info => setRouteInfo(info));
+      } else {
+        setRouteInfo(null);
+      }
+    } else {
+      setRouteInfo(null);
+      if (mapInstance.current && mapInstance.current.getLayer('route')) {
+        mapInstance.current.removeLayer('route');
+      }
+      if (mapInstance.current && mapInstance.current.getSource('route')) {
+        mapInstance.current.removeSource('route');
+      }
+    }
+  }, [selectedEntity]);
+
   useEffect(() => {
     if (mapInstance.current || !mapContainer.current) return;
 
@@ -84,18 +172,14 @@ const MapComponent = () => {
       attributionControl: false
     });
 
-    mapInstance.current.on('click', () => {
-      setSelectedEntity(null);
-    });
-
-    if ("geolocation" in navigator && !lastKnownLocation) {
-      setIsLocating(true);
+    if ("geolocation" in navigator && !lastKnownLocation) {      setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { longitude, latitude } = position.coords;
           lastKnownLocation = [longitude, latitude];
+          setUserLocation({ lat: latitude, lng: longitude });
 
-          if (mapInstance.current) {
+          if (mapInstance.current && !paramLat) {
             mapInstance.current.flyTo({
               center: [longitude, latitude],
               zoom: 16,
@@ -113,12 +197,17 @@ const MapComponent = () => {
         { enableHighAccuracy: true }
       );
     }
+
+    mapInstance.current.on('click', (e) => {
+      if (!(e.originalEvent.target as HTMLElement).closest('.mapboxgl-marker')) {
+        setSelectedEntity(null);
+      }
+    });
+
   }, []);
 
-  // ── Handle incoming track parameters ────────────────────────────────
   useEffect(() => {
     if (!mapInstance.current || !paramLat || !paramLng) return;
-
     mapInstance.current.flyTo({
       center: [parseFloat(paramLng), parseFloat(paramLat)],
       zoom: 16,
@@ -127,12 +216,9 @@ const MapComponent = () => {
     });
   }, [paramLat, paramLng]);
 
-  // ── Add markers for responders ──────────────────────────────────────
   useEffect(() => {
     if (!mapInstance.current) return;
-
     const markers: mapboxgl.Marker[] = [];
-
     responders.forEach((entity: LiveEntities) => {
       const el = document.createElement('div');
       el.innerHTML = `<span role="img" aria-label="${entity.subType}" style="font-size: 36px;">${EMOJI[entity.subType] ?? EMOJI.default}</span>`;
@@ -142,39 +228,28 @@ const MapComponent = () => {
       el.style.alignItems = 'center';
       el.style.justifyContent = 'center';
       el.style.cursor = 'pointer';
-
-      // Click to toggle destination line
-      el.addEventListener('click', (e) => {
+      el.onclick = (e) => {
         e.stopPropagation();
-        setSelectedEntity(prev => prev === entity.entityNumber ? null : entity.entityNumber);
-      });
-
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([entity.lng, entity.lat])
-        .setPopup(new mapboxgl.Popup().setHTML(`
-          <div style="font-family: Inter, sans-serif; min-width: 160px;">
-            <p style="font-weight: 700; margin-bottom: 4px;">
-              ${EMOJI[entity.subType] ?? EMOJI.default} ${entity.subType.toUpperCase()}
-            </p>
-            <p style="font-size: 12px; color: #555;">
-              Status: <b>${entity.status}</b>
-            </p>
-            ${entity.userPhone ? `<p style="font-size: 12px; color: #555;">📞 ${entity.userPhone}</p>` : ''}
-            <p style="font-size: 11px; color: #999; margin-top: 4px;">
-              ${entity.lat.toFixed(5)}, ${entity.lng.toFixed(5)}
-            </p>
-          </div>
-        `))
-        .addTo(mapInstance.current!);
-
+        setSelectedEntity({
+          id: entity.id.toHexString(),
+          entityNumber: entity.entityNumber,
+          type: 'responder',
+          subType: entity.subType,
+          status: entity.status,
+          phone: entity.userPhone,
+          lat: entity.lat,
+          lng: entity.lng,
+          destinationLat: entity.destinationLat,
+          destinationLng: entity.destinationLng,
+        });
+      };
+      const marker = new mapboxgl.Marker(el).setLngLat([entity.lng, entity.lat]).addTo(mapInstance.current!);
       markers.push(marker);
     });
-
-    return () => {
-      markers.forEach(marker => marker.remove());
-    };
+    return () => { markers.forEach(marker => marker.remove()); };
   }, [responders]);
 
+<<<<<<< HEAD
   // ── Draw destination line when an entity is selected ─────────────────
   useEffect(() => {
     const map = mapInstance.current;
@@ -190,8 +265,8 @@ const MapComponent = () => {
 
     removeLine();
 
-    if (selectedEntity !== null) {
-      const entity = responders.find((r: LiveEntities) => r.entityNumber === selectedEntity);
+    if (selectedEntity && selectedEntity.entityNumber !== undefined) {
+      const entity = responders.find((r: LiveEntities) => r.entityNumber === selectedEntity.entityNumber);
       if (entity && entity.destinationLat !== undefined && entity.destinationLng !== undefined) {
         
         map.addSource('destination-source', {
@@ -257,7 +332,6 @@ const MapComponent = () => {
   // ── Add markers for distress signals ────────────────────────────────
   useEffect(() => {
     if (!mapInstance.current) return;
-
     const markers: mapboxgl.Marker[] = [];
 
     distressSignals.forEach((signal) => {
@@ -268,40 +342,31 @@ const MapComponent = () => {
       el.style.display = 'flex';
       el.style.alignItems = 'center';
       el.style.justifyContent = 'center';
+      el.style.cursor = 'pointer';
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([signal.lng!, signal.lat!])
-        .setPopup(new mapboxgl.Popup().setHTML(`
-          <div style="font-family: Inter, sans-serif; min-width: 160px;">
-            <p style="font-weight: 700; margin-bottom: 4px;">
-              🚨 DISTRESS SIGNAL
-            </p>
-            <p style="font-size: 12px; color: #555;">
-              Severity: <b>${signal.severity}/5</b> · Status: <b>${signal.status}</b>
-            </p>
-            <p style="font-size: 12px; color: #555;">${signal.message}</p>
-            ${signal.userPhone ? `<p style="font-size: 12px; color: #555;">📞 ${signal.userPhone}</p>` : ''}
-            <p style="font-size: 11px; color: #999; margin-top: 4px;">
-              ${signal.lat!.toFixed(5)}, ${signal.lng!.toFixed(5)}
-            </p>
-          </div>
-        `))
-        .addTo(mapInstance.current!);
-
+      el.onclick = (e) => {
+        e.stopPropagation();
+        setSelectedEntity({
+          id: signal.signalId.toString(),
+          type: 'distress',
+          subType: 'Distress Signal',
+          status: signal.status,
+          phone: signal.userPhone,
+          lat: signal.lat!,
+          lng: signal.lng!
+        });
+      };
+      
+      const marker = new mapboxgl.Marker(el).setLngLat([signal.lng!, signal.lat!]).addTo(mapInstance.current!);
       markers.push(marker);
     });
 
-    return () => {
-      markers.forEach(marker => marker.remove());
-    };
+    return () => { markers.forEach(marker => marker.remove()); };
   }, [distressSignals]);
 
-  // ── Add glowing circles for incidents ───────────────────────────────
   useEffect(() => {
     if (!mapInstance.current) return;
-
     const markers: mapboxgl.Marker[] = [];
-
     activeIncidents.forEach((incident: Incidents) => {
       const el = document.createElement('div');
       el.innerHTML = `
@@ -314,33 +379,22 @@ const MapComponent = () => {
       el.style.height = '32px';
       el.style.cursor = 'pointer';
       el.style.filter = 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))';
-
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([incident.lng, incident.lat])
-        .setPopup(new mapboxgl.Popup().setHTML(`
-          <div style="font-family: Inter, sans-serif; min-width: 160px;">
-            <p style="font-weight: 700; margin-bottom: 4px;">
-              🔥 INCIDENT
-            </p>
-            <p style="font-size: 12px; color: #555;">
-              Category: <b>${incident.category}</b>
-            </p>
-            <p style="font-size: 12px; color: #555;">
-              Status: <b>${incident.status}</b>
-            </p>
-            <p style="font-size: 11px; color: #999; margin-top: 4px;">
-              ${incident.lat.toFixed(5)}, ${incident.lng.toFixed(5)}
-            </p>
-          </div>
-        `))
-        .addTo(mapInstance.current!);
-
+      el.onclick = (e) => {
+        e.stopPropagation();
+        setSelectedEntity({
+          id: incident.incidentId.toString(),
+          type: 'incident',
+          subType: incident.category,
+          status: incident.status,
+          lat: incident.lat,
+          lng: incident.lng,
+          description: incident.description
+        });
+      };
+      const marker = new mapboxgl.Marker(el).setLngLat([incident.lng, incident.lat]).addTo(mapInstance.current!);
       markers.push(marker);
     });
-
-    return () => {
-      markers.forEach(marker => marker.remove());
-    };
+    return () => { markers.forEach(marker => marker.remove()); };
   }, [activeIncidents]);
 
   return (
@@ -356,6 +410,109 @@ const MapComponent = () => {
           >
             <div className="w-3 h-3 bg-terracotta rounded-full animate-pulse" />
             <span className="text-[14px] font-black text-espresso tracking-widest uppercase">Locating you...</span>
+          </motion.div>
+        )}
+
+        {selectedEntity && (
+          <motion.div
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            className="fixed top-24 right-6 w-[350px] max-h-[calc(100vh-140px)] bg-white/85 backdrop-blur-xl border border-espresso/20 shadow-2xl z-5000 flex flex-col rounded-sm overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-espresso text-white p-8">
+              <div className="flex justify-between items-start mb-6">
+                <div className="w-12 h-12 bg-white/10 rounded-xs flex items-center justify-center text-2xl">
+                  {selectedEntity.type === 'responder' ? EMOJI[selectedEntity.subType] : selectedEntity.type === 'distress' ? '🚨' : '🔥'}
+                </div>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedEntity(null); }} className="text-white/40 hover:text-white transition-colors cursor-pointer p-1">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-tight leading-none mb-2">{selectedEntity.subType}</h2>
+              <p className="text-[10px] font-black uppercase tracking-[.3em] opacity-40">{selectedEntity.type} Tactical Node</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+              <div>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-2">Current Status</h4>
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full ${selectedEntity.status === 'active' || selectedEntity.status === 'responding' ? 'bg-emerald-500 animate-pulse' : 'bg-espresso/20'}`} />
+                  <span className="text-lg font-bold text-espresso capitalize">{selectedEntity.status}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-2">Coordinates</h4>
+                <p className="text-base font-bold text-espresso tracking-tight">{selectedEntity.lat.toFixed(6)}, {selectedEntity.lng.toFixed(6)}</p>
+              </div>
+
+              {selectedEntity.phone && (
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-2">Comms Frequency</h4>
+                  <p className="text-base font-bold text-espresso tracking-tight">📞 {selectedEntity.phone}</p>
+                </div>
+              )}
+
+              {routeInfo && (
+                <div className="bg-espresso/5 border border-espresso/10 p-5 rounded-xs">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-1">Route Distance</h4>
+                      <p className="text-xl font-black text-espresso">{routeInfo.distance < 1000 ? `${routeInfo.distance.toFixed(0)}m` : `${(routeInfo.distance / 1000).toFixed(1)}km`}</p>
+                    </div>
+                    <div className="text-right">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-1">Estimated ETA</h4>
+                      <p className="text-xl font-black text-terracotta">~{Math.max(1, Math.round(routeInfo.duration / 60))} MIN</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-espresso/5 flex items-center gap-2">
+                    <div className="w-2 h-2 bg-terracotta rounded-full animate-ping" />
+                    <span className="text-[9px] font-black text-espresso/40 uppercase tracking-widest">Live Traffic Routing Active</span>
+                  </div>
+                </div>
+              )}
+
+              {!routeInfo && userLocation && (
+                <div className="bg-espresso/5 border border-espresso/10 p-5 rounded-xs">
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-1">Distance to Node</h4>
+                   <p className="text-xl font-black text-espresso">
+                    {(() => {
+                      const R = 6371;
+                      const dLat = (selectedEntity.lat - userLocation.lat) * Math.PI / 180;
+                      const dLon = (selectedEntity.lng - userLocation.lng) * Math.PI / 180;
+                      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(userLocation.lat * Math.PI / 180) * Math.cos(selectedEntity.lat * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                      const d = R * c;
+                      return d < 1 ? `${(d * 1000).toFixed(0)}m` : `${d.toFixed(1)}km`;
+                    })()}
+                  </p>
+                </div>
+              )}
+
+              {selectedEntity.type === 'incident' && (
+                <div className="pt-4">
+                  <Link to={`/incident/${selectedEntity.id}`} className="flex items-center justify-center gap-2 w-full py-4 border border-espresso text-espresso text-[11px] font-black uppercase tracking-[.2em] hover:bg-espresso hover:text-white transition-all rounded-xs shadow-sm">
+                    View Tactical Briefing
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+                    </svg>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <div className="p-8 border-t border-espresso/5">
+              <button className="w-full py-4 bg-espresso text-white text-[12px] font-black uppercase tracking-[.3em] hover:bg-espresso/90 transition-all rounded-xs shadow-xl flex items-center justify-center gap-3" onClick={() => { mapInstance.current?.flyTo({ center: [selectedEntity.lng, selectedEntity.lat], zoom: 17, essential: true }); }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" />
+                </svg>
+                Focus Command
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
