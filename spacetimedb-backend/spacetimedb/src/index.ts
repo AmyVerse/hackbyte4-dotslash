@@ -562,6 +562,23 @@ export const admin_assign_destination = spacetimedb.reducer(
     }
 );
 
+export const admin_free_responder = spacetimedb.reducer(
+    {
+        entityNumber: t.u64()
+    },
+    (ctx, { entityNumber }) => {
+        const entity = ctx.db.live_entities.entityNumber.find(entityNumber);
+        if (entity) {
+            ctx.db.live_entities.id.update({
+                ...entity,
+                destinationLat: undefined,
+                destinationLng: undefined,
+                status: "idle"
+            });
+        }
+    }
+);
+
 
 
 
