@@ -10,6 +10,7 @@ import Upload from './pages/Upload';
 import Success from './pages/Success';
 import AdminDashboard from './pages/AdminDashboard';
 import SOSButton from './components/SOSButton';
+import MinimalSOS from './pages/MinimalSOS';
 
 const Navigation = () => {
   const location = useLocation();
@@ -108,6 +109,7 @@ const AppContent = () => {
 export default function App() {
   return (
     <Routes>
+      <Route path="/sos-minimal" element={<MinimalSOS />} />
       <Route path="/godmode" element={<GodModeContainer />} />
       <Route path="/upload" element={<Upload />} />
       <Route path="/success" element={<Success />} />
