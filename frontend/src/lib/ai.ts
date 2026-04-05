@@ -156,3 +156,55 @@ export function formatIncidentDescription(data: AIResponse): string {
   output += `**Personnel Assigned:** ${data.personnel_assigned}`;
   return output;
 }
+
+export interface DispatchSuggestion {
+  suggestionText: string;
+  allocation: Array<{ type: string; count: number }>;
+  justification: string;
+}
+
+/**
+ * analyzeDispatch
+ */
+export async function analyzeDispatch(
+  incidentDescription: string,
+  availableResources: Record<string, number>
+): Promise<DispatchSuggestion> {
+  try {
+    const resourceList = Object.entries(availableResources)
+      .map(([type, count]) => `${count} ${type}(s)`)
+      .join(", ");
+
+    const prompt = `You are a strategic AI Dispatch Coordinator. 
+    Analyze the following emergency incident and the pool of currently idle responders.
+    
+    Incident: "${incidentDescription}"
+    Currently Available Idle Responders: ${resourceList || "None"}
+    
+    Task: Decide exactly how many of each available responder type should be sent. 
+    You cannot send more than are currently idle.
+    
+    Return pure JSON with exactly this schema:
+    {
+      "suggestionText": "A 1-2 sentence high-level summary of action.",
+      "allocation": [{"type": "ambulance", "count": 1}, etc...],
+      "justification": "Detailed tactical reasoning justifying your exact allocation based ONLY on what is available."
+    }`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" }
+    });
+
+    if (!response.text) throw new Error("Empty response");
+    return JSON.parse(response.text) as DispatchSuggestion;
+  } catch (error) {
+    console.error("AI Dispatch Error:", error);
+    return {
+      suggestionText: "Unable to reach tactical AI.",
+      allocation: [],
+      justification: "System fallback triggered due to AI error."
+    };
+  }
+}

@@ -87,7 +87,7 @@
 
 /* ── Glass panel ─────────────────────────────────────── */
 .glass-panel {
-  background: rgb(33, 32, 32);
+  background: black;
  
   border: 1px solid var(--glass-border);
   border-radius: 16px;

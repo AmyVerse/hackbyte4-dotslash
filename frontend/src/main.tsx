@@ -19,7 +19,7 @@ function Root() {
         .withUri(HOST)
         .withDatabaseName(DB_NAME)
         .withToken(localStorage.getItem(TOKEN_KEY) || undefined)
-        .onConnect((_conn: DbConnection, identity: Identity, token: string) => {
+        .onConnect((_conn: DbConnection, _identity: Identity, token: string) => {
           localStorage.setItem(TOKEN_KEY, token)
         })
         .onDisconnect(() => { })

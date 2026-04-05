@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -6,6 +6,8 @@ import { tables, reducers } from '../module_bindings';
 import type { LiveEntities, Incidents } from '../module_bindings/types';
 import { Identity } from 'spacetimedb';
 import MarkdownContent from '../components/MarkdownContent';
+import { analyzeDispatch } from '../lib/ai';
+import type { DispatchSuggestion } from '../lib/ai';
 
 const MAP_CENTER: [number, number] = [23.1815, 79.9864];
 const MAP_ZOOM = 13;
@@ -59,6 +61,13 @@ export default function AdminDashboard() {
   const [selectedEntity, setSelectedEntity] = useState<bigint | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<bigint | null>(null);
   const [placementMode, setPlacementMode] = useState<string>('none');
+  
+  const [aiSuggestion, setAiSuggestion] = useState<DispatchSuggestion | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showJustification, setShowJustification] = useState(false);
+  const [analyzedIncidentId, setAnalyzedIncidentId] = useState<bigint | null>(null);
+  const [suggestedResponderIds, setSuggestedResponderIds] = useState<bigint[]>([]);
+  const [dispatchedIncidents, setDispatchedIncidents] = useState<Record<string, boolean>>({});
 
   const responders = useMemo(
     () => allEntities.filter((e: LiveEntities) => e.type === 'responder'),
@@ -96,6 +105,46 @@ export default function AdminDashboard() {
       setPlacementMode('none');
     }
   };
+
+  useEffect(() => {
+    if (selectedIncident !== null && selectedIncident !== analyzedIncidentId) {
+      const inc = incidents.find(i => i.incidentId === selectedIncident);
+      if (inc) {
+        setIsAnalyzing(true);
+        setAnalyzedIncidentId(selectedIncident);
+        const idleResponders = responders.filter(r => r.destinationLat === undefined || r.destinationLat === null || r.destinationLat > 900.0);
+        const availableResources: Record<string, number> = {};
+        idleResponders.forEach(r => {
+           availableResources[r.subType] = (availableResources[r.subType] || 0) + 1;
+        });
+        
+        analyzeDispatch(inc.description, availableResources).then(suggestion => {
+           setAiSuggestion(suggestion);
+           
+           const suggestedIds: bigint[] = [];
+           suggestion.allocation.forEach(alloc => {
+             const typeResponders = idleResponders
+               .filter(r => r.subType === alloc.type)
+               .map(r => ({
+                 id: r.entityNumber,
+                 dist: L.latLng(r.lat, r.lng).distanceTo(L.latLng(inc.lat, inc.lng))
+               }))
+               .sort((a, b) => a.dist - b.dist);
+               
+             const selected = typeResponders.slice(0, alloc.count).map(r => r.id);
+             suggestedIds.push(...selected);
+           });
+           setSuggestedResponderIds(suggestedIds);
+           setIsAnalyzing(false);
+        });
+      }
+    } else if (selectedIncident === null) {
+      setAiSuggestion(null);
+      setAnalyzedIncidentId(null);
+      setShowJustification(false);
+      setSuggestedResponderIds([]);
+    }
+  }, [selectedIncident, analyzedIncidentId, incidents, responders]);
 
   if (!isAuthenticated) {
     return (
@@ -161,7 +210,8 @@ export default function AdminDashboard() {
           <div className="p-4 flex flex-col gap-3">
             {responders.map((r: LiveEntities) => {
               const isSelected = selectedEntity === r.entityNumber;
-              const hasDest = r.destinationLat !== undefined;
+              const hasDest = r.destinationLat !== undefined && r.destinationLat !== null && r.destinationLat <= 900.0;
+              const isSuggested = suggestedResponderIds.includes(r.entityNumber);
               
               return (
                 <div 
@@ -170,16 +220,21 @@ export default function AdminDashboard() {
                   className={`p-3 rounded-lg border cursor-pointer transition-all ${
                     isSelected 
                       ? 'bg-[#3b82f6]/20 border-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
+                      : isSuggested
+                      ? 'bg-[#a855f7]/20 border-[#a855f7] shadow-[0_0_15px_rgba(168,85,247,0.3)]'
                       : 'bg-[#1a1a1a] border-[#333] hover:border-gray-500'
                   }`}
                 >
                   <div className="flex justify-between items-center mb-1">
                     <span className="font-bold">{EMOJI[r.subType] ?? EMOJI.default} UNIT #{r.entityNumber.toString()}</span>
-                    <span className={`text-[10px] px-2 py-1 rounded uppercase font-bold ${
-                      r.status === 'deployed' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
-                    }`}>
-                      {r.status}
-                    </span>
+                    <div className="flex gap-2 items-center">
+                      {isSuggested && <span className="text-[10px] bg-[#a855f7] text-white px-2 py-1 rounded uppercase font-bold animate-pulse">✨ Suggested</span>}
+                      <span className={`text-[10px] px-2 py-1 rounded uppercase font-bold ${
+                        r.status === 'deployed' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+                      }`}>
+                        {r.status}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-xs text-gray-400 flex flex-col gap-1">
                     <div>Type: <span className="uppercase text-white">{r.subType}</span></div>
@@ -220,7 +275,7 @@ export default function AdminDashboard() {
                     {new Date(Number(inc.createdAt)).toLocaleTimeString()}
                   </span>
                 </div>
-                <p className={`text-sm leading-snug ${isSelected ? 'text-white' : 'text-gray-300'}`}>{inc.description}</p>
+                <p className={`text-sm leading-snug line-clamp-3 ${isSelected ? 'text-white' : 'text-gray-300'}`}>{inc.description}</p>
                 <div className="mt-2 text-[10px] text-gray-500 font-mono">
                   ID: {inc.incidentId.toString()} • GPS: {inc.lat.toFixed(4)}, {inc.lng.toFixed(4)}
                 </div>
@@ -233,6 +288,77 @@ export default function AdminDashboard() {
 
       {/* Map Area */}
       <div className="flex-1 relative">
+        {/* Top AI Dispatch Panel */}
+        {selectedIncident !== null && (
+          <div className="absolute top-4 left-4 right-4 z-[2000] bg-black/60 backdrop-blur-xl border border-[#3b82f6]/30 rounded-xl p-4 shadow-2xl flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🤖</span>
+                <h3 className="font-bold text-sm uppercase tracking-widest text-[#3b82f6]">AI Dispatch Strategy</h3>
+              </div>
+              {isAnalyzing && <span className="text-sm text-[#3b82f6] animate-pulse">Analyzing Incident & Allocating Resources...</span>}
+            </div>
+            
+            {aiSuggestion && (
+              <div className="mt-2 text-sm text-gray-200">
+                <p className="font-bold mb-3">{aiSuggestion.suggestionText}</p>
+                
+                <div className="flex gap-4 items-center">
+                  <div className="flex gap-2">
+                    {aiSuggestion.allocation.map((alloc, idx) => (
+                      <span key={idx} className="bg-[#3b82f6]/20 px-3 py-1 rounded-full border border-[#3b82f6]/50 text-[#3b82f6] font-bold text-xs uppercase tracking-wider">
+                        {alloc.count}x {alloc.type}
+                      </span>
+                    ))}
+                    {aiSuggestion.allocation.length === 0 && <span className="text-gray-500 italic bg-[#333] px-3 py-1 rounded-full text-xs">No resources to allocate</span>}
+                  </div>
+                  
+                  <button 
+                    onClick={() => setShowJustification(!showJustification)}
+                    className="ml-auto text-xs px-3 py-1 border border-gray-600 font-bold rounded hover:bg-gray-800 transition-colors uppercase tracking-widest text-gray-300"
+                  >
+                    {showJustification ? 'Hide Reasoning' : 'View AI Reasoning'}
+                  </button>
+                </div>
+                
+                {suggestedResponderIds.length > 0 && selectedIncident && (
+                  dispatchedIncidents[selectedIncident.toString()] ? (
+                    <div className="mt-4 w-full bg-green-500/20 text-green-400 font-bold py-3 rounded text-xs uppercase tracking-widest text-center border border-green-500/50">
+                      ✅ Units Deployed to this Incident
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        const inc = incidents.find(i => i.incidentId === selectedIncident);
+                        if (inc) {
+                          suggestedResponderIds.forEach(id => {
+                            adminAssignDestination({
+                              entityNumber: id,
+                              destLat: inc.lat,
+                              destLng: inc.lng,
+                            });
+                          });
+                          setSuggestedResponderIds([]);
+                          setDispatchedIncidents(prev => ({ ...prev, [inc.incidentId.toString()]: true }));
+                        }
+                      }}
+                      className="mt-4 w-full bg-[#a855f7] hover:bg-[#9333ea] text-white font-bold py-3 rounded text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all"
+                    >
+                      ⚡ Autodeploy {suggestedResponderIds.length} Nearest Units to Incident
+                    </button>
+                  )
+                )}
+
+                {showJustification && (
+                  <div className="mt-4 p-4 bg-[#0a0a0a]/80 border border-[#222] rounded text-sm text-gray-400 leading-relaxed">
+                    <span className="text-[#3b82f6] font-bold mr-2">LOGIC:</span>{aiSuggestion.justification}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {selectedEntity !== null && (
           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] bg-[#3b82f6] text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_#3b82f6] pointer-events-none animate-pulse text-sm">
             ASSIGN DESTINATION: Click anywhere on the map
@@ -293,7 +419,7 @@ export default function AdminDashboard() {
 
           {/* Render Responders & Deployment Lines */}
           {responders.map((r: LiveEntities) => {
-            const hasDest = r.destinationLat !== undefined && r.destinationLng !== undefined;
+            const hasDest = r.destinationLat !== undefined && r.destinationLat !== null && r.destinationLat <= 900.0 && r.destinationLng !== undefined;
             const isSelected = selectedEntity === r.entityNumber;
             const icon = L.divIcon({
               className: 'responder-icon',
@@ -367,12 +493,24 @@ export default function AdminDashboard() {
             </div>
             {selectedEntity !== null && (
               <div className="p-4 bg-[#0a0a0a] border-t border-[#333]">
-                <button 
-                  onClick={() => handleDestinationSelected(inc.lat, inc.lng)}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded text-sm transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)]"
-                >
-                  DEPLOY SELECTED UNIT HERE
-                </button>
+                {dispatchedIncidents[inc.incidentId.toString()] ? (
+                  <button 
+                    disabled
+                    className="w-full bg-green-600/50 text-white font-bold py-3 rounded text-sm cursor-not-allowed"
+                  >
+                    ✅ DEPLOYED TO INCIDENT
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      handleDestinationSelected(inc.lat, inc.lng);
+                      setDispatchedIncidents(prev => ({ ...prev, [inc.incidentId.toString()]: true }));
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded text-sm transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+                  >
+                    DEPLOY SELECTED UNIT HERE
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -172,7 +172,8 @@ const MapComponent = () => {
       attributionControl: false
     });
 
-    if ("geolocation" in navigator && !lastKnownLocation) {      setIsLocating(true);
+    if ("geolocation" in navigator && !lastKnownLocation) {
+      setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { longitude, latitude } = position.coords;
@@ -249,7 +250,6 @@ const MapComponent = () => {
     return () => { markers.forEach(marker => marker.remove()); };
   }, [responders]);
 
-<<<<<<< HEAD
   // ── Draw destination line when an entity is selected ─────────────────
   useEffect(() => {
     const map = mapInstance.current;
@@ -268,7 +268,7 @@ const MapComponent = () => {
     if (selectedEntity && selectedEntity.entityNumber !== undefined) {
       const entity = responders.find((r: LiveEntities) => r.entityNumber === selectedEntity.entityNumber);
       if (entity && entity.destinationLat !== undefined && entity.destinationLng !== undefined) {
-        
+
         map.addSource('destination-source', {
           type: 'geojson',
           data: {
@@ -313,7 +313,7 @@ const MapComponent = () => {
             properties: {}
           }
         });
-        
+
         map.addLayer({
           id: 'destination-target',
           type: 'circle',
@@ -356,7 +356,7 @@ const MapComponent = () => {
           lng: signal.lng!
         });
       };
-      
+
       const marker = new mapboxgl.Marker(el).setLngLat([signal.lng!, signal.lat!]).addTo(mapInstance.current!);
       markers.push(marker);
     });
@@ -478,8 +478,8 @@ const MapComponent = () => {
 
               {!routeInfo && userLocation && (
                 <div className="bg-espresso/5 border border-espresso/10 p-5 rounded-xs">
-                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-1">Distance to Node</h4>
-                   <p className="text-xl font-black text-espresso">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-espresso/30 mb-1">Distance to Node</h4>
+                  <p className="text-xl font-black text-espresso">
                     {(() => {
                       const R = 6371;
                       const dLat = (selectedEntity.lat - userLocation.lat) * Math.PI / 180;
