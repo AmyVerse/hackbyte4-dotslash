@@ -12,6 +12,7 @@ import {
 
 export default __t.row({
   id: __t.identity().primaryKey(),
+  entityNumber: __t.u64().name("entity_number"),
   userPhone: __t.option(__t.string()).name("user_phone"),
   type: __t.string(),
   subType: __t.string().name("sub_type"),
@@ -19,4 +20,6 @@ export default __t.row({
   lat: __t.f64(),
   lng: __t.f64(),
   lastSeen: __t.u64().name("last_seen"),
+  destinationLat: __t.option(__t.f64()).name("destination_lat"),
+  destinationLng: __t.option(__t.f64()).name("destination_lng"),
 });

@@ -89,7 +89,7 @@ const Feed = () => {
       lng: incident.lng,
       reporter: `COMMAND_NODE_${incident.incidentId}`,
       description: incident.description,
-      timestamp: 'TIME NOT RECORDED',
+      timestamp: incident.createdAt ? new Date(Number(incident.createdAt)).toLocaleString() : 'TIME NOT RECORDED',
       sortKey: -Number(incident.incidentId),
     }))
 

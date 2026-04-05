@@ -30,6 +30,7 @@ const MapComponent = () => {
   const paramLng = searchParams.get('lng');
 
   const [isLocating, setIsLocating] = useState(false);
+  const [selectedEntity, setSelectedEntity] = useState<bigint | null>(null);
 
   // ── SpacetimeDB data ────────────────────────────────────────────
   const [allEntities] = useTable(tables.live_entities);
@@ -81,6 +82,10 @@ const MapComponent = () => {
       zoom: initialZoom,
       antialias: true,
       attributionControl: false
+    });
+
+    mapInstance.current.on('click', () => {
+      setSelectedEntity(null);
     });
 
     if ("geolocation" in navigator && !lastKnownLocation) {
@@ -136,6 +141,13 @@ const MapComponent = () => {
       el.style.display = 'flex';
       el.style.alignItems = 'center';
       el.style.justifyContent = 'center';
+      el.style.cursor = 'pointer';
+
+      // Click to toggle destination line
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setSelectedEntity(prev => prev === entity.entityNumber ? null : entity.entityNumber);
+      });
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat([entity.lng, entity.lat])
@@ -162,6 +174,85 @@ const MapComponent = () => {
       markers.forEach(marker => marker.remove());
     };
   }, [responders]);
+
+  // ── Draw destination line when an entity is selected ─────────────────
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map) return;
+
+    // Helper to safely clean up
+    const removeLine = () => {
+      if (map.getLayer('destination-line')) map.removeLayer('destination-line');
+      if (map.getSource('destination-source')) map.removeSource('destination-source');
+      if (map.getLayer('destination-target')) map.removeLayer('destination-target');
+      if (map.getSource('destination-target-source')) map.removeSource('destination-target-source');
+    };
+
+    removeLine();
+
+    if (selectedEntity !== null) {
+      const entity = responders.find((r: LiveEntities) => r.entityNumber === selectedEntity);
+      if (entity && entity.destinationLat !== undefined && entity.destinationLng !== undefined) {
+        
+        map.addSource('destination-source', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [entity.lng, entity.lat],
+                [entity.destinationLng, entity.destinationLat]
+              ]
+            },
+            properties: {}
+          }
+        });
+
+        // Draw dotted line
+        map.addLayer({
+          id: 'destination-line',
+          type: 'line',
+          source: 'destination-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#3b82f6',
+            'line-width': 4,
+            'line-dasharray': [2, 2],
+            'line-opacity': 0.8
+          }
+        });
+
+        // Destination target point
+        map.addSource('destination-target-source', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [entity.destinationLng, entity.destinationLat]
+            },
+            properties: {}
+          }
+        });
+        
+        map.addLayer({
+          id: 'destination-target',
+          type: 'circle',
+          source: 'destination-target-source',
+          paint: {
+            'circle-radius': 6,
+            'circle-color': '#3b82f6',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#fff'
+          }
+        });
+      }
+    }
+  }, [selectedEntity, responders]);
 
   // ── Add markers for distress signals ────────────────────────────────
   useEffect(() => {

@@ -10,12 +10,8 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  incidentId: __t.u64().primaryKey().name("incident_id"),
-  category: __t.string(),
-  status: __t.string(),
-  description: __t.string(),
-  lat: __t.f64(),
-  lng: __t.f64(),
-  createdAt: __t.u64().name("created_at"),
-});
+export default {
+  entityNumber: __t.u64(),
+  destLat: __t.f64(),
+  destLng: __t.f64(),
+};

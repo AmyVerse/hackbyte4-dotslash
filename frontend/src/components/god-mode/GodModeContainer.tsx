@@ -21,9 +21,11 @@ export default function GodModeContainer() {
       <MapContainer
         center={MAP_CENTER}
         zoom={MAP_ZOOM}
-        style={{ height: '100%', width: '100%', 
+        style={{
+          height: '100%', width: '100%',
           // @ts-ignore
-          cursor: (placementMode !== 'none' || incidentCoords) ? 'crosshair' : 'grab' }}
+          cursor: (placementMode !== 'none' || incidentCoords) ? 'crosshair' : 'grab'
+        }}
         zoomControl={false}
       >
         <TileLayer
@@ -31,16 +33,16 @@ export default function GodModeContainer() {
           attribution='&copy; OpenStreetMap'
           maxZoom={19}
         />
-        <GodModeInteractions 
-            placementMode={placementMode} 
-            onPlaced={() => setPlacementMode('none')} 
-            onIncidentClick={(lat, lng) => setIncidentCoords({ lat, lng })}
+        <GodModeInteractions
+          placementMode={placementMode}
+          onPlaced={() => setPlacementMode('none')}
+          onIncidentClick={(lat, lng) => setIncidentCoords({ lat, lng })}
         />
         <GodModeMarkers />
       </MapContainer>
 
-      <GodModeControls 
-        connected={connected} 
+      <GodModeControls
+        connected={connected}
         placementMode={placementMode}
         setPlacementMode={setPlacementMode}
       />
@@ -50,9 +52,9 @@ export default function GodModeContainer() {
           position: 'absolute', bottom: '40px', left: '50%', transform: 'translateX(-50%)',
           zIndex: 9999, width: '100%', maxWidth: '600px', padding: '0 20px'
         }}>
-          <IncidentReporter 
-            forcedLat={incidentCoords.lat} 
-            forcedLng={incidentCoords.lng} 
+          <IncidentReporter
+            forcedLat={incidentCoords.lat}
+            forcedLng={incidentCoords.lng}
             onSuccess={() => {
               setIncidentCoords(null);
               setPlacementMode('none');

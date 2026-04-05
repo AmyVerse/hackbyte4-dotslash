@@ -24,6 +24,7 @@ const distress_signals = table({ name: 'distress_signals', public: true }, {
 
 const live_entities = table({ name: 'live_entities', public: true }, {
     id: t.identity().primaryKey(),     
+    entityNumber: t.u64().autoInc().unique(),
     // Changed to t.option to allow anonymous distress signals
     userPhone: t.option(t.string()),   
     type: t.string(),                  // "responder" | "distress"
@@ -32,6 +33,8 @@ const live_entities = table({ name: 'live_entities', public: true }, {
     lat: t.f64(),
     lng: t.f64(),
     lastSeen: t.u64(),                 
+    destinationLat: t.option(t.f64()),
+    destinationLng: t.option(t.f64()),
 });
 
 
@@ -42,6 +45,7 @@ const incidents = table({ name: 'incidents', public: true }, {
     description: t.string(),           
     lat: t.f64(),
     lng: t.f64(),
+    createdAt: t.u64(),
 });
 
 
@@ -115,6 +119,7 @@ export const update_location = spacetimedb.reducer(
         } else {
             ctx.db.live_entities.insert({
                 id: ctx.sender,
+                entityNumber: 0n,
                 userPhone: phone,
                 type,
                 subType,
@@ -122,6 +127,8 @@ export const update_location = spacetimedb.reducer(
                 lat,
                 lng,
                 lastSeen: currentTime,
+                destinationLat: undefined,
+                destinationLng: undefined
             });
         }
     }
@@ -227,13 +234,16 @@ export const report_distress = spacetimedb.reducer(
             // Create a new live entity for the distress signal
             ctx.db.live_entities.insert({
                 id: ctx.sender,
+                entityNumber: 0n,
                 userPhone: phone,
                 type: "distress",
                 subType: "emergency",
                 status: "active",
                 lat,
                 lng,
-                lastSeen: currentTime
+                lastSeen: currentTime,
+                destinationLat: undefined,
+                destinationLng: undefined
             });
         }
         // (If they aren't on the map yet, the frontend should immediately call 
@@ -265,7 +275,8 @@ export const create_incident = spacetimedb.reducer(
             status: "active",
             description,
             lat,
-            lng
+            lng,
+            createdAt: currentTime
         });
 
        
@@ -359,13 +370,16 @@ export const accept_dispatch = spacetimedb.reducer(
         } else {
             ctx.db.live_entities.insert({
                 id: ctx.sender,
+                entityNumber: 0n,
                 userPhone: responder.phone,
                 type: "responder",
                 subType,
                 status: "dispatched",
                 lat,
                 lng,
-                lastSeen: currentTime
+                lastSeen: currentTime,
+                destinationLat: undefined,
+                destinationLng: undefined
             });
         }
 
@@ -446,6 +460,7 @@ export const god_mode_move_entity = spacetimedb.reducer(
             // If they don't exist, we create them using the targetId
             ctx.db.live_entities.insert({
                 id: targetId,
+                entityNumber: 0n,
                 userPhone: undefined, // Keeps it anonymous/flexible
                 type,
                 subType,
@@ -453,6 +468,8 @@ export const god_mode_move_entity = spacetimedb.reducer(
                 lat,
                 lng,
                 lastSeen: currentTime,
+                destinationLat: undefined,
+                destinationLng: undefined
             });
         }
     }
@@ -499,12 +516,12 @@ export const seed_demo_data = spacetimedb.reducer(
         const fireInc = ctx.db.incidents.insert({
             incidentId: 0n, category: "fire", status: "active",
             description: "Structure fire reported at Sector 5.",
-            lat: 40.7135, lng: -74.0055
+            lat: 40.7135, lng: -74.0055, createdAt: currentTime
         });
         const medInc = ctx.db.incidents.insert({
             incidentId: 0n, category: "medical", status: "active",
             description: "Severe road accident near the junction.",
-            lat: 40.7200, lng: -74.0100
+            lat: 40.7200, lng: -74.0100, createdAt: currentTime
         });
 
         // 3. THREE DISTRESS SIGNALS (SOS)
@@ -523,6 +540,25 @@ export const seed_demo_data = spacetimedb.reducer(
 
         // NOTE: For Responders, we let the God Mode tool spawn them 
         // because each one needs a unique Identity string/object.
+    }
+);
+
+export const admin_assign_destination = spacetimedb.reducer(
+    {
+        entityNumber: t.u64(),
+        destLat: t.f64(),
+        destLng: t.f64()
+    },
+    (ctx, { entityNumber, destLat, destLng }) => {
+        const entity = ctx.db.live_entities.entityNumber.find(entityNumber);
+        if (entity) {
+            ctx.db.live_entities.id.update({
+                ...entity,
+                destinationLat: destLat,
+                destinationLng: destLng,
+                status: "deployed"
+            });
+        }
     }
 );
 

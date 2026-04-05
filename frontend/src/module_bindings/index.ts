@@ -35,6 +35,7 @@ import {
 
 // Import all reducer arg schemas
 import AcceptDispatchReducer from "./accept_dispatch_reducer";
+import AdminAssignDestinationReducer from "./admin_assign_destination_reducer";
 import CreateIncidentReducer from "./create_incident_reducer";
 import GodModeDeleteEntityReducer from "./god_mode_delete_entity_reducer";
 import GodModeDeleteIncidentReducer from "./god_mode_delete_incident_reducer";
@@ -97,11 +98,15 @@ const tablesSchema = __schema({
   live_entities: __table({
     name: 'live_entities',
     indexes: [
+      { accessor: 'entityNumber', name: 'live_entities_entity_number_idx_btree', algorithm: 'btree', columns: [
+        'entityNumber',
+      ] },
       { accessor: 'id', name: 'live_entities_id_idx_btree', algorithm: 'btree', columns: [
         'id',
       ] },
     ],
     constraints: [
+      { name: 'live_entities_entity_number_key', constraint: 'unique', columns: ['entityNumber'] },
       { name: 'live_entities_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, LiveEntitiesRow),
@@ -147,6 +152,7 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_dispatch", AcceptDispatchReducer),
+  __reducerSchema("admin_assign_destination", AdminAssignDestinationReducer),
   __reducerSchema("create_incident", CreateIncidentReducer),
   __reducerSchema("god_mode_delete_entity", GodModeDeleteEntityReducer),
   __reducerSchema("god_mode_delete_incident", GodModeDeleteIncidentReducer),

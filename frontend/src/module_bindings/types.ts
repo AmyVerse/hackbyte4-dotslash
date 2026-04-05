@@ -37,11 +37,13 @@ export const Incidents = __t.object("Incidents", {
   description: __t.string(),
   lat: __t.f64(),
   lng: __t.f64(),
+  createdAt: __t.u64(),
 });
 export type Incidents = __Infer<typeof Incidents>;
 
 export const LiveEntities = __t.object("LiveEntities", {
   id: __t.identity(),
+  entityNumber: __t.u64(),
   userPhone: __t.option(__t.string()),
   type: __t.string(),
   subType: __t.string(),
@@ -49,6 +51,8 @@ export const LiveEntities = __t.object("LiveEntities", {
   lat: __t.f64(),
   lng: __t.f64(),
   lastSeen: __t.u64(),
+  destinationLat: __t.option(__t.f64()),
+  destinationLng: __t.option(__t.f64()),
 });
 export type LiveEntities = __Infer<typeof LiveEntities>;
 
