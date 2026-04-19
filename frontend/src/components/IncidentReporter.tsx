@@ -87,7 +87,11 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
 
       if (aiResponse.severity.toLowerCase() === 'critical' || aiResponse.severity.toLowerCase() === 'high') {
         try {
-          fetch('https://rescue-api.amyverse.in/broadcast');
+          fetch('https://rescuevultr.amyverse.in/api/broadcast-safety', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `CRITICAL ALERT: ${aiResponse.title}. Please check the live map for details.` })
+          });
         } catch (e) { }
       }
 

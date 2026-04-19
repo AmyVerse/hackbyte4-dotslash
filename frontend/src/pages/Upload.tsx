@@ -83,7 +83,7 @@ const Upload = () => {
   async function handleFileUpload(file: File) {
     try {
       setIsSubmitting(true);
-      const response = await fetch('https://rescue-api.amyverse.in/get-upload-url', {
+      const response = await fetch('https://rescuevultr.amyverse.in/get-upload-url', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
