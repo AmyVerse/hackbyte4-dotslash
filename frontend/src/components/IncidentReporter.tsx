@@ -85,13 +85,7 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
         lng: userLng,
       });
 
-      try {
-        fetch('https://rescuevultr.amyverse.in/api/broadcast-safety', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: `CRITICAL ALERT: ${aiResponse.title}. Please check the live map for details.` })
-        });
-      } catch (e) { }
+      fetch('https://rescuevultr.amyverse.in/api/broadcast-safety', { method: 'POST' });
 
 
       setDescription('');
@@ -101,7 +95,7 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
       if (onSuccess) {
         onSuccess();
       } else {
-        navigate('/upload');
+        navigate('/success');
       }
     } catch (error) {
       console.error('Failed to report incident:', error);
