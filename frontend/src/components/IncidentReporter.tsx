@@ -85,15 +85,14 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
         lng: userLng,
       });
 
-      if (aiResponse.severity.toLowerCase() === 'critical' || aiResponse.severity.toLowerCase() === 'high') {
-        try {
-          fetch('https://rescuevultr.amyverse.in/api/broadcast-safety', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `CRITICAL ALERT: ${aiResponse.title}. Please check the live map for details.` })
-          });
-        } catch (e) { }
-      }
+      try {
+        fetch('https://rescuevultr.amyverse.in/api/broadcast-safety', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: `CRITICAL ALERT: ${aiResponse.title}. Please check the live map for details.` })
+        });
+      } catch (e) { }
+
 
       setDescription('');
       setIsRecording(false);
