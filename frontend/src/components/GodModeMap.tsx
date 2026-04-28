@@ -286,33 +286,7 @@ export default function GodModeMap() {
           />
         ))}
 
-        {/* ─── SOS distress_signals table: pending = blinking ─── */}
-        {allSignals.map((sig: DistressSignals) => (
-          <CircleMarker
-            key={String(sig.signalId)}
-            center={MAP_CENTER}
-            radius={8}
-            className={sig.status === 'pending' ? 'distress-blink' : ''}
-            pathOptions={{
-              color:       '#ff9500',
-              fillColor:   '#ff9500',
-              fillOpacity: sig.status === 'pending' ? 0.75 : 0.28,
-              weight:      1.5,
-            }}
-          >
-            <Popup>
-              <div style={{ fontFamily: 'Inter, sans-serif', minWidth: 200 }}>
-                <p style={{ fontWeight: 700, color: '#ff9500', marginBottom: 4 }}>
-                  🆘 SOS — Severity {sig.severity}/5
-                </p>
-                <p style={{ fontSize: 12 }}>{sig.message}</p>
-                <p style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
-                  {sig.userPhone} · {sig.status}
-                </p>
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
+        {/* ─── SOS distress_signals table: pending = blinking (Removed) ─── */}
 
         {/* ─── Responders: draggable emoji markers ─── */}
         {responders.map((e: LiveEntities) => (

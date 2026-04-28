@@ -17,54 +17,56 @@ export default function GodModeContainer() {
   const [incidentCoords, setIncidentCoords] = useState<{ lat: number, lng: number } | null>(null)
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', backgroundColor: '#000', color: '#fff' }}>
-      <MapContainer
-        center={MAP_CENTER}
-        zoom={MAP_ZOOM}
-        style={{
-          height: '100%', width: '100%',
-          // @ts-ignore
-          cursor: (placementMode !== 'none' || incidentCoords) ? 'crosshair' : 'grab'
-        }}
-        zoomControl={false}
-      >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; OpenStreetMap'
-          maxZoom={19}
-        />
-        <GodModeInteractions
+    <div className="flex w-screen h-screen bg-[#ebe8e3] text-[#553a34] font-sans overflow-hidden" style={{ fontFamily: 'Cera Pro, Trebuchet MS, sans-serif' }}>
+      <div className="w-[420px] h-full flex flex-col bg-[#ffffff] border-r border-[#dac2b6]/40 z-[1000] shadow-[4px_0_24px_rgba(85,58,52,0.02)] relative">
+        <GodModeControls
+          connected={connected}
           placementMode={placementMode}
-          onPlaced={() => setPlacementMode('none')}
-          onIncidentClick={(lat, lng) => setIncidentCoords({ lat, lng })}
+          setPlacementMode={setPlacementMode}
         />
-        <GodModeMarkers />
-      </MapContainer>
 
-      <GodModeControls
-        connected={connected}
-        placementMode={placementMode}
-        setPlacementMode={setPlacementMode}
-      />
+        {incidentCoords && (
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-[#fcf9f4] border-t border-[#dac2b6]/40 shadow-[0_-8px_30px_rgba(85,58,52,0.05)] z-50 overflow-y-auto max-h-[60vh]">
+            <h3 className="font-black text-xs text-[#553a34] uppercase tracking-[0.2em] mb-4">Report Incident</h3>
+            <IncidentReporter
+              forcedLat={incidentCoords.lat}
+              forcedLng={incidentCoords.lng}
+              onSuccess={() => {
+                setIncidentCoords(null);
+                setPlacementMode('none');
+              }}
+              onCancel={() => {
+                setIncidentCoords(null);
+              }}
+            />
+          </div>
+        )}
+      </div>
 
-      {incidentCoords && (
-        <div style={{
-          position: 'absolute', bottom: '40px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 9999, width: '100%', maxWidth: '600px', padding: '0 20px'
-        }}>
-          <IncidentReporter
-            forcedLat={incidentCoords.lat}
-            forcedLng={incidentCoords.lng}
-            onSuccess={() => {
-              setIncidentCoords(null);
-              setPlacementMode('none');
-            }}
-            onCancel={() => {
-              setIncidentCoords(null);
-            }}
+      <div className="flex-1 relative bg-[#ebe8e3]">
+        <MapContainer
+          center={MAP_CENTER}
+          zoom={MAP_ZOOM}
+          style={{
+            height: '100%', width: '100%',
+            // @ts-ignore
+            cursor: (placementMode !== 'none' || incidentCoords) ? 'crosshair' : 'grab'
+          }}
+          zoomControl={false}
+        >
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; OpenStreetMap'
+            maxZoom={19}
           />
-        </div>
-      )}
+          <GodModeInteractions
+            placementMode={placementMode}
+            onPlaced={() => setPlacementMode('none')}
+            onIncidentClick={(lat, lng) => setIncidentCoords({ lat, lng })}
+          />
+          <GodModeMarkers />
+        </MapContainer>
+      </div>
     </div>
   )
 }

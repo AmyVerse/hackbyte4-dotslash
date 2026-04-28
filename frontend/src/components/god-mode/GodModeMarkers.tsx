@@ -192,33 +192,7 @@ export default function GodModeMarkers() {
         />
       ))}
 
-      {allSignals.map((sig: DistressSignals) => (
-        <CircleMarker
-          key={String(sig.signalId)}
-          center={MAP_CENTER} // SOS is pending, maybe not geolocated
-          radius={8}
-          className={sig.status === 'pending' ? 'distress-blink' : ''}
-          pathOptions={{
-            color: '#ff9500',
-            fillColor: '#ff9500',
-            fillOpacity: sig.status === 'pending' ? 0.75 : 0.28,
-            weight: 1.5,
-          }}
-        >
-          <Popup>
-            <div style={{ fontFamily: 'Inter, sans-serif', minWidth: 200, color: '#333' }}>
-              <p style={{ fontWeight: 700, color: '#ff9500', marginBottom: 4 }}>
-                🆘 SOS — Severity {sig.severity}/5
-              </p>
-              <p style={{ fontSize: 12 }}>{sig.message}</p>
-              <p style={{ fontSize: 11, marginTop: 4 }}>
-                {sig.userPhone} · {sig.status}
-              </p>
-              {/* Could add delete signal here, but not part of specific requirement -> ignored for now */}
-            </div>
-          </Popup>
-        </CircleMarker>
-      ))}
+      {/* SOS distress signals removed */}
 
       {responders.map((e: LiveEntities) => (
         <ResponderMarker

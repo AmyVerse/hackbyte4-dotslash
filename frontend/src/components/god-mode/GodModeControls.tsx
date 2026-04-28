@@ -9,54 +9,7 @@ interface Props {
   setPlacementMode: (mode: PlacementMode) => void
 }
 
-function StatBadge({
-  label, value, color,
-}: {
-  label: string; value: number; color: string
-}) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '8px 12px',
-      background: 'rgba(255,255,255,0.04)',
-      borderRadius: 10,
-      border: `1px solid ${color}40`,
-    }}>
-      <div>
-        <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: '#f5f5f7' }}>
-          {value}
-        </div>
-        <div style={{ fontSize: 10, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {label}
-        </div>
-      </div>
-    </div>
-  )
-}
 
-function ModeButton({ 
-  mode, currentMode, onClick, color, label 
-}: { 
-  mode: PlacementMode, currentMode: PlacementMode, onClick: () => void, color: string, label: string 
-}) {
-  const isActive = mode === currentMode;
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        width: '100%', padding: '10px',
-        background: isActive ? color : 'transparent',
-        border: `1px solid ${color}`,
-        borderRadius: '6px', cursor: 'pointer',
-        color: isActive ? '#000' : color,
-        fontWeight: 'bold', fontSize: '13px',
-        transition: 'all 0.2s', marginBottom: '8px'
-      }}
-    >
-      {label}
-    </button>
-  )
-}
 
 export default function GodModeControls({ connected, placementMode, setPlacementMode }: Props) {
   const [allEntities]  = useTable(tables.live_entities)
@@ -68,61 +21,76 @@ export default function GodModeControls({ connected, placementMode, setPlacement
   const pendingSOS      = allSignals.filter((s: DistressSignals) => s.status === 'pending')
 
   return (
-    <div
-      style={{
-        position: 'absolute', top: 20, right: 20, zIndex: 1000,
-        padding: '18px 20px', width: 280,
-        display: 'flex', flexDirection: 'column', gap: 14,
-        background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid #333',
-        borderRadius: '12px'
-      }}
-    >
+    <div className="flex-1 overflow-y-auto bg-[#ffffff]">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="p-6 border-b border-[#dac2b6]/40 flex items-center justify-between bg-[#fcf9f4]">
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>GOD MODE</div>
-          <div style={{ fontSize: 10, color: '#999' }}>Rescue Link</div>
+          <h1 className="font-black text-2xl text-[#553a34] tracking-tight">GOD MODE</h1>
+          <p className="text-[10px] font-bold text-[#974726] uppercase tracking-[0.25em] mt-1">Rescue Link Control</p>
         </div>
-        {/* Live connection dot */}
-        <div
-          title={connected ? 'Connected' : 'Not connected'}
-          style={{
-            marginLeft: 'auto',
-            width: 9, height: 9, borderRadius: '50%',
-            background: connected ? '#30d158' : '#ff453a',
-            boxShadow: connected ? '0 0 8px #30d158' : '0 0 8px #ff453a',
-            transition: 'background 0.3s',
-          }}
-        />
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full ${connected ? 'bg-[#ffdea0]' : 'bg-[#dac2b6]/50'}`} title={connected ? "Connected" : "Disconnected"}>
+          <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-[#553d00]' : 'bg-[#553a34]/50'}`} />
+        </div>
       </div>
 
-      {/* Stats grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <StatBadge label="Incidents"    value={activeIncidents.length} color="#ff3b30" />
-        <StatBadge label="Responders"   value={responders.length}      color="#0a84ff" />
-        <StatBadge label="Pending SOS"  value={pendingSOS.length}      color="#ff9500" />
-        <StatBadge label="All Entities" value={allEntities.length}     color="#30d158" />
+      <div className="p-6 border-b border-[#dac2b6]/40 bg-[#fcf9f4]">
+        <h2 className="font-black text-xs text-[#553a34]/60 uppercase tracking-[0.2em] mb-4">System Metrics</h2>
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <StatBadge label="Incidents"    value={activeIncidents.length} />
+          <StatBadge label="Responders"   value={responders.length} />
+          <StatBadge label="Pending SOS"  value={pendingSOS.length} />
+          <StatBadge label="All Entities" value={allEntities.length} />
+        </div>
       </div>
-
-      <div style={{ height: 1, background: '#333' }} />
 
       {/* Spawning Controls */}
-      <div>
-        <div style={{ fontSize: 11, color: '#999', marginBottom: '10px', textTransform: 'uppercase' }}>
-          Select mode then click map:
+      <div className="p-6">
+        <h2 className="font-black text-xs text-[#553a34]/60 uppercase tracking-[0.2em] mb-4">Spawning Tools</h2>
+        <div className="text-[10px] text-[#553a34]/50 mb-4 font-bold uppercase tracking-[0.15em]">
+          Select mode then click map to deploy:
         </div>
-        <ModeButton mode="incident" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'incident' ? 'none' : 'incident')} color="#ff3b30" label="🔴 Incident" />
-        <ModeButton mode="ambulance" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'ambulance' ? 'none' : 'ambulance')} color="#0a84ff" label="🚑 Ambulance" />
-        <ModeButton mode="firetruck" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'firetruck' ? 'none' : 'firetruck')} color="#ff9500" label="🚒 Firetruck" />
-        <ModeButton mode="police" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'police' ? 'none' : 'police')} color="#8a2be2" label="🚔 Police Unit" />
-        <ModeButton mode="volunteer" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'volunteer' ? 'none' : 'volunteer')} color="#30d158" label="🙋 Volunteer" />
-      </div>
+        <div className="flex flex-col gap-2">
+          <ModeButton mode="incident" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'incident' ? 'none' : 'incident')} label="🔴 Create Incident" />
+          <ModeButton mode="ambulance" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'ambulance' ? 'none' : 'ambulance')} label="🚑 Deploy Ambulance" />
+          <ModeButton mode="firetruck" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'firetruck' ? 'none' : 'firetruck')} label="🚒 Deploy Firetruck" />
+          <ModeButton mode="police" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'police' ? 'none' : 'police')} label="🚔 Deploy Police Unit" />
+          <ModeButton mode="volunteer" currentMode={placementMode} onClick={() => setPlacementMode(placementMode === 'volunteer' ? 'none' : 'volunteer')} label="🙋 Deploy Volunteer" />
+        </div>
 
-      <div style={{ fontSize: 11, color: '#999', textAlign: 'center', marginTop: '4px' }}>
-        Click any item on map to Delete.
+        <div className="text-[10px] font-bold text-[#553a34]/40 uppercase tracking-[0.15em] text-center mt-6 pt-6 border-t border-[#dac2b6]/30">
+          Click any item on map to Delete.
+        </div>
       </div>
     </div>
+  )
+}
+
+function StatBadge({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-[#ffffff] border border-[#dac2b6]/50 p-4 shadow-sm flex flex-col justify-center">
+      <div className="text-2xl font-black text-[#553a34] leading-none mb-1">{value}</div>
+      <div className="text-[9px] font-black text-[#553a34]/50 uppercase tracking-[0.2em]">{label}</div>
+    </div>
+  )
+}
+
+function ModeButton({ 
+  mode, currentMode, onClick, label 
+}: { 
+  mode: PlacementMode, currentMode: PlacementMode, onClick: () => void, label: string 
+}) {
+  const isActive = mode === currentMode;
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full p-4 font-black text-xs uppercase tracking-[0.15em] text-left transition-all border ${
+        isActive 
+          ? 'bg-[#553a34] text-white border-[#553a34] shadow-[0_4px_14px_rgba(85,58,52,0.2)]' 
+          : 'bg-[#ffffff] text-[#553a34] border-[#dac2b6] hover:bg-[#ebe8e3]'
+      }`}
+    >
+      {label}
+    </button>
   )
 }
