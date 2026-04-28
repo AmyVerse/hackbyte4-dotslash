@@ -15,10 +15,28 @@ export default function GodModeContainer() {
   const { isActive: connected } = useSpacetimeDB()
   const [placementMode, setPlacementMode] = useState<PlacementMode>('none')
   const [incidentCoords, setIncidentCoords] = useState<{ lat: number, lng: number } | null>(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
     <div className="flex w-screen h-screen bg-[#ebe8e3] text-[#553a34] font-sans overflow-hidden" style={{ fontFamily: 'Cera Pro, Trebuchet MS, sans-serif' }}>
-      <div className="w-[420px] h-full flex flex-col bg-[#ffffff] border-r border-[#dac2b6]/40 z-[1000] shadow-[4px_0_24px_rgba(85,58,52,0.02)] relative">
+      
+      {/* Mobile Sidebar Toggle Button */}
+      <button 
+        className="md:hidden fixed top-6 left-6 z-[2000] bg-[#ffffff] p-3 shadow-md border border-[#dac2b6]/40 text-[#553a34] font-black text-xs uppercase tracking-[0.2em]"
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        {isSidebarOpen ? '✕ Close' : '☰ Menu'}
+      </button>
+
+      {/* Mobile Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-[#553a34]/20 backdrop-blur-sm z-[2999]"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <div className={`fixed md:relative top-0 left-0 h-full w-[85vw] max-w-[420px] md:w-[420px] flex-none flex flex-col bg-[#ffffff] border-r border-[#dac2b6]/40 z-[3000] md:z-[1000] shadow-[4px_0_24px_rgba(85,58,52,0.02)] transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <GodModeControls
           connected={connected}
           placementMode={placementMode}

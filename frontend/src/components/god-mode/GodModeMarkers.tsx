@@ -4,10 +4,7 @@ import L from 'leaflet'
 import type { LeafletEventHandlerFnMap } from 'leaflet'
 import { useTable, useReducer } from 'spacetimedb/react'
 import { tables, reducers } from '../../module_bindings'
-import type { LiveEntities, Incidents, DistressSignals } from '../../module_bindings/types'
-
-const MAP_CENTER: [number, number] = [21.1458, 79.0882]
-
+import type { LiveEntities, Incidents } from '../../module_bindings/types'
 const EMOJI: Record<string, string> = {
   ambulance: '🚑',
   firetruck: '🚒',
@@ -110,8 +107,6 @@ function ResponderMarker({ entity, onDrag, onDelete }: ResponderMarkerProps) {
 export default function GodModeMarkers() {
   const [allEntities] = useTable(tables.live_entities)
   const [allIncidents] = useTable(tables.incidents)
-  const [allSignals] = useTable(tables.distress_signals)
-
   const activeIncidents = useMemo(() => allIncidents.filter((i: Incidents) => i.status === 'active'), [allIncidents])
   const distressMarkers = useMemo(() => allEntities.filter((e: LiveEntities) => e.type === 'distress'), [allEntities])
   const responders = useMemo(() => allEntities.filter((e: LiveEntities) => e.type === 'responder'), [allEntities])

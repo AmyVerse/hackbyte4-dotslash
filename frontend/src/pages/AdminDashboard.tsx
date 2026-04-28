@@ -58,6 +58,7 @@ export default function AdminDashboard() {
   const adminAssignDestination = useReducer(reducers.adminAssignDestination);
   const godModeMoveEntity = useReducer(reducers.godModeMoveEntity);
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<bigint | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<bigint | null>(null);
   const [placementMode, setPlacementMode] = useState<string>('none');
@@ -189,8 +190,25 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex w-screen h-screen bg-[#ebe8e3] text-[#553a34] font-sans overflow-hidden" style={{ fontFamily: 'Cera Pro, Trebuchet MS, sans-serif' }}>
+      
+      {/* Mobile Sidebar Toggle Button */}
+      <button 
+        className="md:hidden fixed top-6 left-6 z-[2000] bg-[#ffffff] p-3 shadow-md border border-[#dac2b6]/40 text-[#553a34] font-black text-xs uppercase tracking-[0.2em]"
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        {isSidebarOpen ? '✕ Close' : '☰ Menu'}
+      </button>
+
+      {/* Mobile Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-[#553a34]/20 backdrop-blur-sm z-[2999]"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-[420px] h-full flex flex-col bg-[#ffffff] border-r border-[#dac2b6]/40 z-50 shadow-[4px_0_24px_rgba(85,58,52,0.02)]">
+      <div className={`fixed md:relative top-0 left-0 h-full w-[85vw] max-w-[420px] md:w-[420px] flex-none flex flex-col bg-[#ffffff] border-r border-[#dac2b6]/40 z-[3000] md:z-50 shadow-[4px_0_24px_rgba(85,58,52,0.02)] transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="p-6 border-b border-[#dac2b6]/40 flex items-center justify-between bg-[#fcf9f4]">
           <div>
             <h1 className="font-black text-2xl text-[#553a34] tracking-tight">ADMIN PORTAL</h1>
