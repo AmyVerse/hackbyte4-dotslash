@@ -159,7 +159,7 @@ const MapComponent = () => {
 
     const initialCenter: [number, number] = (paramLat && paramLng)
       ? [parseFloat(paramLng), parseFloat(paramLat)]
-      : lastKnownLocation || [79.9864, 23.1815];
+      : lastKnownLocation || [79.0882, 21.1458];
 
     const initialZoom = (paramLat && paramLng) ? 16 : (lastKnownLocation ? 16 : 12);
 

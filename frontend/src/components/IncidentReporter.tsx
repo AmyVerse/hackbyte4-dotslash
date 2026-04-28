@@ -15,8 +15,8 @@ interface IncidentReporterProps {
 
 const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: IncidentReporterProps = {}) => {
   const [description, setDescription] = useState('');
-  const [userLat, setUserLat] = useState(23.1815);
-  const [userLng, setUserLng] = useState(79.9864);
+  const [userLat, setUserLat] = useState(21.1458);
+  const [userLng, setUserLng] = useState(79.0882);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -86,7 +86,6 @@ const IncidentReporter = ({ forcedLat, forcedLng, onSuccess, onCancel }: Inciden
       });
 
       fetch('https://rescuevultr.amyverse.in/api/broadcast-safety', { method: 'POST' });
-
 
       setDescription('');
       setIsRecording(false);

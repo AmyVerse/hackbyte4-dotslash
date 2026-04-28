@@ -9,7 +9,7 @@ import MarkdownContent from '../components/MarkdownContent';
 import { analyzeDispatch } from '../lib/ai';
 import type { DispatchSuggestion } from '../lib/ai';
 
-const MAP_CENTER: [number, number] = [23.1815, 79.9864];
+const MAP_CENTER: [number, number] = [21.1458, 79.0882];
 const MAP_ZOOM = 13;
 
 const EMOJI: Record<string, string> = {

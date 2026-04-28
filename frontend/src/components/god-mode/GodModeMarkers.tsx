@@ -6,7 +6,7 @@ import { useTable, useReducer } from 'spacetimedb/react'
 import { tables, reducers } from '../../module_bindings'
 import type { LiveEntities, Incidents, DistressSignals } from '../../module_bindings/types'
 
-const MAP_CENTER: [number, number] = [79.9864, 23.1815]
+const MAP_CENTER: [number, number] = [21.1458, 79.0882]
 
 const EMOJI: Record<string, string> = {
   ambulance: '🚑',

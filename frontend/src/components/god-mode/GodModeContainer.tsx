@@ -6,7 +6,7 @@ import GodModeMarkers from './GodModeMarkers'
 import GodModeControls from './GodModeControls'
 import IncidentReporter from '../IncidentReporter'
 
-const MAP_CENTER: [number, number] = [40.7128, -74.006]
+const MAP_CENTER: [number, number] = [21.1458, 79.0882]
 const MAP_ZOOM = 13
 
 export type PlacementMode = 'none' | 'incident' | 'ambulance' | 'firetruck' | 'police' | 'volunteer'
